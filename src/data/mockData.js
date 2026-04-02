@@ -18,69 +18,60 @@ export const pemda_aceh = [
   { no: 61, nama: "Kab. Aceh Barat", alokasi: 19906371000, paguRK: 19906371000, realisasiRP: 19227679163, realisasiPct: 96.59, progresFisik: 100.00, profesional: 8, semiProfesional: 17, pekerja: 51, namaOPD: "Dinas PU Kab. Aceh Barat", noHPOPD: "6281678901234", emailOPD: "pu@acehbarat.go.id" },
 ];
 
-export const triwulanDocs = {
-  TW1: [
-    { id: "ded", label: "DED Final RK (Layout/Stripmap, Typical Cross Section, RAB)", required: true, keterangan: "Dokumen perencanaan teknis lengkap" },
-    { id: "kontrak_spmk", label: "SPMK (Surat Perintah Mulai Kerja)", required: true, keterangan: "Ditandatangani PPK dan penyedia" },
-    { id: "kontrak_penawaran", label: "Dokumen Penawaran RAB dan Gambar Rencana", required: true, keterangan: "" },
-    { id: "kontrak_penunjukan", label: "Surat Penunjukan Penyedia Barang/Jasa (SPPBJ)", required: true, keterangan: "" },
-    { id: "kontrak_perjanjian", label: "Surat Perjanjian/Kontrak", required: true, keterangan: "Ditandatangani kedua pihak" },
-    { id: "kurva_s", label: "Kurva S (sudah ditandatangani)", required: true, keterangan: "" },
-    { id: "dpa", label: "DPA (sudah ditandatangani)", required: true, keterangan: "" },
-    { id: "foto_0pct", label: "Foto Dokumentasi 0% (logo PU, logo Pemda, keterangan lokasi, STA, progres)", required: true, keterangan: "Foto kondisi awal sebelum pekerjaan" },
-    { id: "adendum", label: "Adendum Kontrak (jika ada)", required: false, keterangan: "Ditandatangani jika terdapat perubahan" },
-    { id: "progres_keu", label: "Data Progres Keuangan dan Fisik", required: true, keterangan: "" },
+// STATUS PENGADAAN
+export const STATUS_PENGADAAN = ["Persiapan", "Proses Pengadaan Barang & Jasa", "Terkontrak"];
+
+// Dokumen yang masuk Data Kontrak (jika sudah terkontrak), SEMUA TW
+export const DOCS_KONTRAK = [
+  { id: "ded", label: "DED Final RK (Layout/Stripmap, Typical Cross Section, RAB)", required: true, keterangan: "Dokumen perencanaan teknis lengkap" },
+  { id: "spmk", label: "SPMK (Surat Perintah Mulai Kerja)", required: true, keterangan: "Ditandatangani PPK dan penyedia" },
+  { id: "dok_penawaran", label: "Dokumen Penawaran RAB dan Gambar Rencana", required: true, keterangan: "" },
+  { id: "sppbj", label: "Surat Penunjukan Penyedia Barang/Jasa (SPPBJ)", required: true, keterangan: "" },
+  { id: "surat_perjanjian", label: "Surat Perjanjian/Kontrak", required: true, keterangan: "Ditandatangani kedua pihak" },
+];
+
+// Kelengkapan dokumen setelah terkontrak (semua TW) — adendum, update kurva S, foto dokumentasi progres fisik
+export const DOCS_PASCA_KONTRAK_PER_TW = {
+  // Semua TW yang sudah terkontrak: ini selalu muncul
+  SEMUA: [
+    { id: "adendum", label: "Adendum Kontrak (jika ada)", required: false, keterangan: "Ditandatangani jika terdapat perubahan kontrak" },
+    { id: "update_kurva_s", label: "Update Kurva S (jika ada revisi)", required: false, keterangan: "Kurva S terbaru yang sudah ditandatangani" },
+    { id: "foto_dok_progres", label: "Foto Dokumentasi Progres Fisik", required: true, keterangan: "Foto progres terbaru di lapangan" },
   ],
-  TW2: [
-    { id: "kontrak_tw2", label: "Kontrak (bagi Pemda yang belum kontrak di TW I)", required: false, keterangan: "Beserta kelengkapan dokumen TW I" },
-    { id: "kurva_s_tw2", label: "Kurva S update (jika ada revisi)", required: false, keterangan: "" },
-    { id: "foto_0_50", label: "Foto Dokumentasi 0% s/d 50% (logo PU, logo Pemda, keterangan lokasi, STA, progres)", required: true, keterangan: "" },
-    { id: "adendum_tw2", label: "Adendum Kontrak (jika ada)", required: false, keterangan: "" },
-    { id: "progres_keu_tw2", label: "Data Progres Keuangan dan Fisik", required: true, keterangan: "" },
+  TW1: [
+    { id: "kurva_s_tw1", label: "Kurva S Awal (sudah ditandatangani)", required: true, keterangan: "" },
+    { id: "dpa_tw1", label: "DPA (sudah ditandatangani)", required: true, keterangan: "" }, // DPA tetap di Data Progres tapi dokumennya di sini
   ],
   TW3: [
-    { id: "kontrak_tw3", label: "Kontrak (bagi Pemda yang belum kontrak di TW II)", required: false, keterangan: "Beserta kelengkapan dokumen TW I" },
-    { id: "kurva_s_tw3", label: "Kurva S update (jika ada)", required: false, keterangan: "" },
-    { id: "foto_0_100_tw3", label: "Foto Dokumentasi 0% s/d 100% (logo PU, logo Pemda, keterangan lokasi, STA, progres)", required: true, keterangan: "" },
-    { id: "adendum_tw3", label: "Adendum Kontrak + Penjelasan Item Pekerjaan Tambah/Kurang", required: false, keterangan: "" },
-    { id: "pho", label: "Dokumen PHO (jika progres sudah 100%)", required: false, keterangan: "" },
-    { id: "progres_keu_tw3", label: "Data Progres Keuangan dan Fisik", required: true, keterangan: "" },
+    { id: "pho_tw3", label: "Dokumen PHO (jika progres sudah 100%)", required: false, keterangan: "" },
   ],
   TW4: [
-    { id: "foto_100_tw4", label: "Foto Dokumentasi 100% (logo PU, logo Pemda, keterangan lokasi, STA, progres)", required: true, keterangan: "Foto kondisi akhir pekerjaan selesai" },
     { id: "pho_tw4", label: "Dokumen PHO", required: true, keterangan: "" },
     { id: "as_built", label: "As Built Drawing", required: true, keterangan: "" },
-    { id: "progres_keu_tw4", label: "Data Progres Keuangan dan Fisik", required: true, keterangan: "" },
-    { id: "video", label: "Video Hasil Penanganan 100% (Video PKRMS dianjurkan)", required: true, keterangan: "Link video atau file video" },
   ],
 };
 
-export const fotoPerTW = {
-  TW1: [
-    { id: "foto_0", label: "Foto 0%", desc: "Kondisi awal sebelum pekerjaan dimulai", wajib: true },
-  ],
-  TW2: [
-    { id: "foto_0", label: "Foto 0%", desc: "Kondisi awal sebelum pekerjaan", wajib: true },
-    { id: "foto_50", label: "Foto 50%", desc: "Progres pekerjaan mencapai 50%", wajib: true },
-  ],
-  TW3: [
-    { id: "foto_0", label: "Foto 0%", desc: "Kondisi awal sebelum pekerjaan", wajib: true },
-    { id: "foto_50", label: "Foto 50%", desc: "Progres pekerjaan 50%", wajib: true },
-    { id: "foto_100", label: "Foto 100%", desc: "Pekerjaan selesai (jika sudah mencapai 100%)", wajib: false },
-  ],
-  TW4: [
-    { id: "foto_0", label: "Foto 0%", desc: "Kondisi awal sebelum pekerjaan", wajib: true },
-    { id: "foto_50", label: "Foto 50%", desc: "Progres pekerjaan 50%", wajib: true },
-    { id: "foto_100", label: "Foto 100%", desc: "Kondisi akhir pekerjaan 100% selesai", wajib: true },
-  ],
-};
-
+// Checklist per item progres fisik
 export const checklistProgresItems = [
   { id: "vol_sesuai", label: "Volume pekerjaan sesuai kontrak" },
   { id: "mutu_ok", label: "Mutu pekerjaan sesuai spesifikasi teknis" },
   { id: "k3_ok", label: "K3 diterapkan di lapangan" },
   { id: "lingkungan_ok", label: "Penanganan lingkungan sesuai ketentuan" },
   { id: "uang_muka_ok", label: "Pengembalian uang muka sesuai progres keuangan" },
+];
+
+// Foto kegiatan: semua TW tetap 0%, 50%, 100%
+export const FOTO_SLOTS = [
+  { id: "foto_0", label: "Foto 0%", pct: 0 },
+  { id: "foto_50", label: "Foto 50%", pct: 50 },
+  { id: "foto_100", label: "Foto 100%", pct: 100 },
+];
+
+// PDF dokumentasi per slot foto
+export const PDF_DOK_SLOTS = [
+  { id: "pdf_0", label: "Dokumentasi PDF 0%" },
+  { id: "pdf_50", label: "Dokumentasi PDF 50%" },
+  { id: "pdf_100", label: "Dokumentasi PDF 100%" },
 ];
 
 export const sampleKontrak = {
@@ -106,78 +97,35 @@ export const sampleKontrak = {
   }
 };
 
+// Riwayat status pengadaan per bulan
+export const sampleStatusHistory = [
+  { bulan: "Maret 2024", tanggal: "2024-03-31", status: "Persiapan" },
+  { bulan: "April 2024", tanggal: "2024-04-30", status: "Proses Pengadaan Barang & Jasa" },
+  { bulan: "Mei 2024", tanggal: "2024-05-31", status: "Proses Pengadaan Barang & Jasa" },
+  { bulan: "Juni 2024", tanggal: "2024-06-28", status: "Terkontrak" },
+  { bulan: "Juli 2024", tanggal: "2024-07-31", status: "Terkontrak" },
+  { bulan: "Agustus 2024", tanggal: "2024-08-31", status: "Terkontrak" },
+  { bulan: "September 2024", tanggal: "2024-09-30", status: "Terkontrak" },
+  { bulan: "Oktober 2024", tanggal: "2024-10-30", status: "Terkontrak" },
+  { bulan: "November 2024", tanggal: "2024-11-30", status: "Terkontrak" },
+  { bulan: "Desember 2024", tanggal: "2024-12-10", status: "Terkontrak" },
+];
+
 export const sampleKegiatan = {
   "Provinsi Aceh": [
     {
-      no: 1,
-      kodeKegiatan: "01",
+      no: 1, kodeKegiatan: "01",
       nama: "Penanganan Long Segment (pemeliharaan rutin, pemeliharaan berkala, peningkatan/rekonstruksi) Jl. Batas Aceh Timur - Kota Karang Baru",
-      ruas: "Batas Aceh Timur - Kota Karang Baru",
-      kecamatan: "-",
-      desa: "-",
-      volume: 1.5,
-      satuan: "km",
-      pengadaan: "Kontraktual",
-      paguRK: 12400000000,
-      nilaiKontrak: 12212272000,
-      realisasiRP: 12212272000,
-      realisasiPct: 98.49,
-      realisasiKontrakPct: 100.00,
-      fisik: 100.00,
-      statusPengadaan: "Terkontrak",
-      tanggalKontrak: "28 Jun 2024",
+      ruas: "Batas Aceh Timur - Kota Karang Baru", kecamatan: "-", desa: "-",
+      volume: 1.5, satuan: "km", pengadaan: "Kontraktual",
+      paguRK: 12400000000, nilaiKontrak: 12212272000, realisasiRP: 12212272000,
+      realisasiPct: 98.49, realisasiKontrakPct: 100.00, fisik: 100.00,
+      statusPengadaan: "Terkontrak", tanggalKontrak: "28 Jun 2024",
       tipeTematik: "05-Jalan - Tematik Penguatan Kawasan Sentra Produksi Pangan (Pertanian, Perikanan, dan Hewani)",
-      menuKegiatan: "01-Penanganan Jalan (Provinsi)",
-      rincianKegiatan: "01-Penanganan Long Segment",
-      tipePermukaan: "AC WC",
-      panjangSesuaiRK: 1.50,
-      capaianOutput: 1.50,
-      statusOutput: "Terlaksana",
-      catatanOutput: "",
-      verifikasiOutput: true,
-      checklistItems: {
-        vol_sesuai: true,
-        mutu_ok: true,
-        k3_ok: true,
-        lingkungan_ok: false,
-        uang_muka_ok: true,
-      },
-      docs: {
-        TW1: {
-          ded: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-07-15", catatan: "" },
-          kontrak_spmk: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-07-15", catatan: "" },
-          kontrak_penawaran: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-07-15", catatan: "" },
-          kontrak_penunjukan: { uploaded: true, verifiedPFID: false, tanggalVerif: "", catatan: "Stempel OPD belum terlihat jelas pada dokumen" },
-          kontrak_perjanjian: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-07-15", catatan: "" },
-          kurva_s: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-07-15", catatan: "" },
-          dpa: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-07-15", catatan: "" },
-          foto_0pct: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-07-15", catatan: "" },
-          adendum: { uploaded: false, verifiedPFID: false, tanggalVerif: "", catatan: "" },
-          progres_keu: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-07-15", catatan: "" },
-        },
-        TW2: {
-          foto_0_50: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-10-01", catatan: "" },
-          progres_keu_tw2: { uploaded: true, verifiedPFID: true, tanggalVerif: "2024-10-01", catatan: "" },
-        },
-        TW3: {
-          foto_0_100_tw3: { uploaded: true, verifiedPFID: false, tanggalVerif: "", catatan: "Logo Pemda tidak terlihat pada foto 50%, harap upload ulang" },
-          pho: { uploaded: false, verifiedPFID: false, tanggalVerif: "", catatan: "" },
-          progres_keu_tw3: { uploaded: true, verifiedPFID: false, tanggalVerif: "", catatan: "Data realisasi keuangan belum diperbarui per akhir TW3" },
-        },
-        TW4: {
-          foto_100_tw4: { uploaded: true, verifiedPFID: false, tanggalVerif: "", catatan: "" },
-          pho_tw4: { uploaded: false, verifiedPFID: false, tanggalVerif: "", catatan: "" },
-          as_built: { uploaded: false, verifiedPFID: false, tanggalVerif: "", catatan: "" },
-          progres_keu_tw4: { uploaded: true, verifiedPFID: false, tanggalVerif: "", catatan: "" },
-          video: { uploaded: false, verifiedPFID: false, tanggalVerif: "", catatan: "" },
-        },
-      },
-      foto: {
-        TW1: { foto_0: { uploaded: true, catatan: "" } },
-        TW2: { foto_0: { uploaded: true, catatan: "" }, foto_50: { uploaded: true, catatan: "Logo Pemda kurang jelas, perlu diperbaiki" } },
-        TW3: { foto_0: { uploaded: true, catatan: "" }, foto_50: { uploaded: true, catatan: "" }, foto_100: { uploaded: false, catatan: "" } },
-        TW4: { foto_0: { uploaded: true, catatan: "" }, foto_50: { uploaded: true, catatan: "" }, foto_100: { uploaded: true, catatan: "" } },
-      },
+      menuKegiatan: "01-Penanganan Jalan (Provinsi)", rincianKegiatan: "01-Penanganan Long Segment",
+      tipePermukaan: "AC WC", panjangSesuaiRK: 1.50, capaianOutput: 1.50,
+      statusOutput: "Terlaksana", catatanOutput: "", verifikasiOutput: true,
+      checklistItems: { vol_sesuai: true, mutu_ok: true, k3_ok: true, lingkungan_ok: false, uang_muka_ok: true },
     }
   ]
 };
