@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import {
-    CheckCircle, Clock, Upload, FileText, Camera, TrendingUp, Eye, BarChart2,
+  CheckCircle, Clock, Upload, FileText, Camera, TrendingUp, Eye, BarChart2,
   CheckSquare, Zap, X, MessageSquare, Download, Phone, AlertTriangle,
   Info, RefreshCw, Lock, Link2, Play, Users, ChevronDown, Edit3,
   AlertCircle, Plus
@@ -251,19 +251,41 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
 
 /* ════════════════════════════════════════════
    TAB: DATA PROGRES
+   - Input progres fisik & keuangan oleh PEMDA
+   - Cek 100% di TW2-4 dengan propagasi
+   - Hapus checklist kepatuhan
 ════════════════════════════════════════════ */
-function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onDocChange }) {
-  const [checks, setChecks] = useState(kegiatan.checklistItems||{});
-  const [expandChk, setExpandChk] = useState(false);
+function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onDocChange, fisik100PerTW, onFisik100Change }) {
   const [dpaUploaded, setDpaUploaded] = useState(false);
   const [dpaVerified, setDpaVerified] = useState(false);
   const [progresModal, setProgresModal] = useState(false);
+
+  // Input progres oleh PEMDA
+  const [inputRealisasiPct, setInputRealisasiPct] = useState(String(kegiatan.realisasiPct || ""));
+  const [inputFisikPct, setInputFisikPct] = useState(String(kegiatan.fisik || ""));
+  const [inputRealisasiRP, setInputRealisasiRP] = useState(String(kegiatan.realisasiRP || ""));
+  const [savedProgres, setSavedProgres] = useState(false);
+
   const progresDocId = { TW1:"progres_keu",TW2:"progres_keu_tw2",TW3:"progres_keu_tw3",TW4:"progres_keu_tw4" }[triwulan]||"progres_keu";
   const progresState = docState[progresDocId]||{};
+
+  // Cek apakah TW sebelumnya sudah 100%
+  const prevTWMap = { TW2:"TW1", TW3:"TW2", TW4:"TW3" };
+  const prevTW = prevTWMap[triwulan];
+  const prevIs100 = prevTW ? !!fisik100PerTW[prevTW] : false;
+  const currentIs100 = !!fisik100PerTW[triwulan];
+  const isLockedByPrev = (triwulan !== "TW1") && prevIs100;
+
+  const showFisik100Check = triwulan !== "TW1";
+
   const penunjang=[
     { no:2,nama:"Penyelenggaraan rapat koordinasi (Penugasan)",vol:1,sat:"Frekuensi",jenis:"Swakelola",paguRK:106765000,realisasi:2304000,realPct:2.16,fisik:0 },
     { no:3,nama:"Perjalanan dinas ke/dari lokasi kegiatan (Penugasan)",vol:4,sat:"Frekuensi",jenis:"Swakelola",paguRK:110000000,realisasi:92791098,realPct:84.36,fisik:42 },
   ];
+
+  const displayFisik = currentIs100 ? 100 : (parseFloat(inputFisikPct) || kegiatan.fisik);
+  const displayReal = parseFloat(inputRealisasiPct) || kegiatan.realisasiPct;
+
   return (
     <div>
       {/* DPA hanya di sini */}
@@ -279,19 +301,129 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
           {!isPemda&&dpaUploaded&&!dpaVerified && <button className="btn btn-success btn-sm" onClick={()=>setDpaVerified(true)}><CheckCircle size={12}/> Verifikasi DPA</button>}
         </div>
       </div>
+
       {!terkontrak && <div className="alert alert-warn" style={{ marginBottom:16 }}><AlertTriangle size={14}/><div><strong>Perhatian:</strong> Status belum Terkontrak. Data progres dapat diisi namun kelengkapan dokumen kontrak belum bisa dilengkapi.</div></div>}
+
+      {/* ── INPUT PROGRES PEMDA ── */}
+      {isPemda && (
+        <div style={{ background:S.surface,border:`1px solid ${isLockedByPrev?"var(--text-dim)":S.border2}`,borderRadius:12,padding:"18px 20px",marginBottom:20,opacity:isLockedByPrev?0.5:1,pointerEvents:isLockedByPrev?"none":"auto" }}>
+          <div style={{ fontSize:12,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:14,display:"flex",alignItems:"center",gap:8 }}>
+            <TrendingUp size={14} color={S.accent}/> Input Progres {triwulan}
+            {isLockedByPrev && <span className="badge badge-green" style={{ marginLeft:8 }}>Auto 100% dari {prevTW}</span>}
+          </div>
+          <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:14 }}>
+            <div>
+              <label style={{ fontSize:11,fontWeight:700,color:S.muted,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.04em" }}>
+                Realisasi Keuangan (%)
+              </label>
+              <div style={{ display:"flex",alignItems:"center",gap:8,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,padding:"8px 12px" }}>
+                <input
+                  type="number" min="0" max="100" step="0.01"
+                  value={currentIs100?"100":inputRealisasiPct}
+                  onChange={e=>setInputRealisasiPct(e.target.value)}
+                  disabled={isLockedByPrev||currentIs100}
+                  style={{ background:"none",border:"none",color:S.text,fontSize:16,fontWeight:700,flex:1,outline:"none",width:"100%" }}
+                  placeholder="0.00"
+                />
+                <span style={{ color:S.muted,fontSize:13 }}>%</span>
+              </div>
+              {inputRealisasiPct && (
+                <div style={{ marginTop:6,height:4,background:S.border,borderRadius:99,overflow:"hidden" }}>
+                  <div style={{ width:`${Math.min(parseFloat(inputRealisasiPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(inputRealisasiPct)||0),borderRadius:99 }}/>
+                </div>
+              )}
+            </div>
+            <div>
+              <label style={{ fontSize:11,fontWeight:700,color:S.muted,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.04em" }}>
+                Progres Fisik (%)
+              </label>
+              <div style={{ display:"flex",alignItems:"center",gap:8,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,padding:"8px 12px" }}>
+                <input
+                  type="number" min="0" max="100" step="0.01"
+                  value={currentIs100?"100":inputFisikPct}
+                  onChange={e=>setInputFisikPct(e.target.value)}
+                  disabled={isLockedByPrev||currentIs100}
+                  style={{ background:"none",border:"none",color:S.text,fontSize:16,fontWeight:700,flex:1,outline:"none",width:"100%" }}
+                  placeholder="0.00"
+                />
+                <span style={{ color:S.muted,fontSize:13 }}>%</span>
+              </div>
+              {inputFisikPct && (
+                <div style={{ marginTop:6,height:4,background:S.border,borderRadius:99,overflow:"hidden" }}>
+                  <div style={{ width:`${Math.min(parseFloat(inputFisikPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(inputFisikPct)||0),borderRadius:99 }}/>
+                </div>
+              )}
+            </div>
+            <div>
+              <label style={{ fontSize:11,fontWeight:700,color:S.muted,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.04em" }}>
+                Realisasi Keuangan (Rp)
+              </label>
+              <div style={{ display:"flex",alignItems:"center",gap:8,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,padding:"8px 12px" }}>
+                <span style={{ color:S.muted,fontSize:13 }}>Rp</span>
+                <input
+                  type="number" min="0"
+                  value={inputRealisasiRP}
+                  onChange={e=>setInputRealisasiRP(e.target.value)}
+                  disabled={isLockedByPrev}
+                  style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:600,flex:1,outline:"none",width:"100%" }}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Cek pekerjaan fisik 100% (TW2-4) */}
+          {showFisik100Check && (
+            <div style={{ background:currentIs100?"var(--green-bg)":"var(--surface2)",border:`1px solid ${currentIs100?"var(--green)":S.border}`,borderRadius:8,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:12 }}>
+              <div
+                style={{ width:24,height:24,borderRadius:7,background:currentIs100?"var(--green-bg)":"transparent",border:`2px solid ${currentIs100?"var(--green)":S.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:isLockedByPrev?"default":"pointer",flexShrink:0,transition:"all 0.2s" }}
+                onClick={()=>!isLockedByPrev&&onFisik100Change(triwulan,!currentIs100)}
+              >
+                {currentIs100 && <CheckCircle size={15} color="var(--green-light)"/>}
+              </div>
+              <div>
+                <div style={{ fontWeight:700,fontSize:13,color:currentIs100?"var(--green-light)":S.text }}>
+                  Pekerjaan Fisik Telah 100%
+                </div>
+                <div style={{ fontSize:11,color:S.muted }}>
+                  {isLockedByPrev
+                    ? `Otomatis tercentang karena ${prevTW} sudah 100%`
+                    : "Centang jika progres fisik sudah mencapai 100%. Akan otomatis mengunci TW berikutnya."}
+                </div>
+              </div>
+              {isLockedByPrev && <span className="badge badge-green" style={{ marginLeft:"auto",flexShrink:0 }}>Auto dari {prevTW}</span>}
+            </div>
+          )}
+
+          <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
+            {savedProgres && <span style={{ fontSize:12,color:S.green,display:"flex",alignItems:"center",gap:5 }}><CheckCircle size={13}/> Tersimpan</span>}
+            <button className="btn btn-primary btn-sm" onClick={()=>setSavedProgres(true)}>
+              <CheckCircle size={13}/> Simpan Progres
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Jika locked karena TW sebelumnya sudah 100% */}
+      {isPemda && isLockedByPrev && (
+        <div className="alert alert-info" style={{ marginBottom:16 }}>
+          <Info size={14}/>
+          <div>Pekerjaan sudah dinyatakan <strong>100%</strong> sejak {prevTW}. Data progres {triwulan} otomatis 100% dan terkunci.</div>
+        </div>
+      )}
+
       <div className="table-wrap" style={{ marginBottom:20 }}>
-        <div className="table-header"><span className="table-title"><TrendingUp size={14} style={{ color:S.accent }}/> Data Progres — {triwulan}</span></div>
+        <div className="table-header"><span className="table-title"><TrendingUp size={14} style={{ color:S.accent }}/> Rekap Data Progres — {triwulan}</span></div>
         <div style={{ overflowX:"auto" }}>
           <table>
             <thead><tr>
               <th>NO.</th><th>KEGIATAN/OUTPUT</th><th className="center">VOL</th><th>SATUAN</th><th>PENGADAAN</th>
               <th className="right">PAGU RK (Rp)</th><th className="right">NILAI KONTRAK (Rp)</th>
               <th className="right">REALISASI (Rp)</th><th className="center">%</th>
-              <th className="center">THD KONTRAK</th><th className="center">FISIK (%)</th><th className="center">CHECKLIST</th>
+              <th className="center">THD KONTRAK</th><th className="center">FISIK (%)</th>
             </tr></thead>
             <tbody>
-              <tr><td colSpan={12} style={{ fontWeight:700,fontSize:11,color:S.green,background:"rgba(46,160,67,0.07)",padding:"7px 14px" }}>KEGIATAN FISIK</td></tr>
+              <tr><td colSpan={11} style={{ fontWeight:700,fontSize:11,color:S.green,background:"rgba(46,160,67,0.07)",padding:"7px 14px" }}>KEGIATAN FISIK</td></tr>
               <tr>
                 <td>1</td>
                 <td style={{ maxWidth:260,fontSize:12,lineHeight:1.6,fontWeight:600 }}>{kegiatan.nama}</td>
@@ -299,36 +431,14 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
                 <td><span className="badge badge-blue">{kegiatan.pengadaan}</span></td>
                 <td className="right">{formatRupiah(kegiatan.paguRK)}</td>
                 <td className="right">{formatRupiah(kegiatan.nilaiKontrak)}</td>
-                <td className="right">{formatRupiah(kegiatan.realisasiRP)}</td>
-                <td className="center" style={{ fontWeight:700,color:getColor(kegiatan.realisasiPct) }}>{kegiatan.realisasiPct}</td>
+                <td className="right">{inputRealisasiRP ? formatRupiah(parseInt(inputRealisasiRP)) : formatRupiah(kegiatan.realisasiRP)}</td>
+                <td className="center" style={{ fontWeight:700,color:getColor(displayReal) }}>{displayReal.toFixed(2)}</td>
                 <td className="center" style={{ fontWeight:700,color:getColor(kegiatan.realisasiKontrakPct) }}>{kegiatan.realisasiKontrakPct}</td>
-                <td className="center"><span className={`badge ${kegiatan.fisik===100?"badge-green":"badge-yellow"}`}>{kegiatan.fisik}%</span></td>
                 <td className="center">
-                  <button className="btn btn-outline btn-xs" onClick={()=>setExpandChk(!expandChk)} style={{ display:"flex",alignItems:"center",gap:4 }}>
-                    <CheckSquare size={11}/>{Object.values(checks).filter(Boolean).length}/{checklistProgresItems.length}
-                    <ChevronDown size={10} style={{ transform:expandChk?"rotate(180deg)":"none",transition:"0.2s" }}/>
-                  </button>
+                  <span className={`badge ${displayFisik===100?"badge-green":"badge-yellow"}`}>{displayFisik}%</span>
                 </td>
               </tr>
-              {expandChk && (
-                <tr><td colSpan={12} style={{ padding:0,background:S.surface2 }}>
-                  <div style={{ padding:"14px 20px" }}>
-                    <div style={{ fontSize:11,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Checklist Kepatuhan Kegiatan Fisik</div>
-                    <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:8 }}>
-                      {checklistProgresItems.map(item=>(
-                        <label key={item.id} style={{ display:"flex",alignItems:"center",gap:10,background:S.surface,border:`1px solid ${checks[item.id]?"var(--green)":S.border}`,borderRadius:8,padding:"9px 12px",cursor:!isPemda?"pointer":"default",transition:"border-color 0.15s" }}
-                          onClick={()=>!isPemda&&setChecks(s=>({...s,[item.id]:!s[item.id]}))}>
-                          <div style={{ width:20,height:20,borderRadius:5,flexShrink:0,background:checks[item.id]?"var(--green-bg)":"transparent",border:`1.5px solid ${checks[item.id]?"var(--green)":S.border}`,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                            {checks[item.id]&&<CheckCircle size={13} color={S.green}/>}
-                          </div>
-                          <span style={{ fontSize:12,fontWeight:500,color:checks[item.id]?S.text:S.muted }}>{item.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </td></tr>
-              )}
-              <tr><td colSpan={12} style={{ fontWeight:700,fontSize:11,color:S.accent,background:"rgba(26,127,224,0.05)",padding:"7px 14px" }}>KEGIATAN PENUNJANG</td></tr>
+              <tr><td colSpan={11} style={{ fontWeight:700,fontSize:11,color:S.accent,background:"rgba(26,127,224,0.05)",padding:"7px 14px" }}>KEGIATAN PENUNJANG</td></tr>
               {penunjang.map(p=>(
                 <tr key={p.no}>
                   <td>{p.no}</td><td style={{ fontSize:12,maxWidth:260 }}>{p.nama}</td>
@@ -337,33 +447,35 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
                   <td className="right">{formatRupiah(p.paguRK)}</td><td className="right">0</td>
                   <td className="right">{formatRupiah(p.realisasi)}</td>
                   <td className="center" style={{ color:getColor(p.realPct),fontWeight:700 }}>{p.realPct}</td>
-                  <td className="center">0</td><td className="center">{p.fisik}</td><td className="center">-</td>
+                  <td className="center">0</td><td className="center">{p.fisik}</td>
                 </tr>
               ))}
               <tr style={{ background:S.surface2,borderTop:`2px solid ${S.border}` }}>
                 <td colSpan={5} style={{ textAlign:"right",fontWeight:800,textTransform:"uppercase",fontSize:12 }}>TOTAL</td>
                 <td className="right" style={{ fontWeight:800 }}>12.616.765.000</td>
                 <td className="right" style={{ fontWeight:800 }}>12.212.272.000</td>
-                <td className="right" style={{ fontWeight:800 }}>12.307.367.098</td>
-                <td className="center" style={{ fontWeight:800,color:S.green }}>97,55</td>
+                <td className="right" style={{ fontWeight:800 }}>{inputRealisasiRP ? formatRupiah(parseInt(inputRealisasiRP)) : "12.307.367.098"}</td>
+                <td className="center" style={{ fontWeight:800,color:getColor(displayReal) }}>{displayReal.toFixed(2)}</td>
                 <td className="center" style={{ fontWeight:800,color:S.green }}>100,00</td>
-                <td className="center" style={{ fontWeight:800,color:S.green }}>98,65</td>
-                <td/>
+                <td className="center" style={{ fontWeight:800,color:getColor(displayFisik) }}>{displayFisik}%</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Upload bukti progres */}
       <div className="detail-card">
         <div className="detail-card-header">
-          <span style={{ fontWeight:700,fontSize:13 }}>Upload Data Progres Keuangan &amp; Fisik</span>
+          <span style={{ fontWeight:700,fontSize:13 }}>Upload Bukti Progres Keuangan &amp; Fisik</span>
           {progresState.uploaded&&<span className={`badge ${progresState.verifiedPFID?"badge-green":"badge-yellow"}`}>{progresState.verifiedPFID?"✓ Terverifikasi":"⏳ Menunggu Verifikasi"}</span>}
         </div>
         <div style={{ padding:16,display:"flex",gap:12,alignItems:"center" }}>
-          <div style={{ flex:1,fontSize:12,color:S.muted }}>Upload laporan realisasi keuangan dan fisik per {triwulan}. Format: Excel atau PDF.</div>
+          <div style={{ flex:1,fontSize:12,color:S.muted }}>Upload laporan/bukti realisasi keuangan dan fisik per {triwulan}. Format: Excel atau PDF.</div>
           <div style={{ display:"flex",gap:8 }}>
             {progresState.uploaded&&<button className="btn btn-outline btn-sm"><Eye size={12}/> Lihat</button>}
-            {isPemda&&!progresState.uploaded&&<button className="btn btn-primary btn-sm" onClick={()=>setProgresModal(true)}><Upload size={12}/> Upload Progres</button>}
+            {isPemda&&!progresState.uploaded&&<button className="btn btn-primary btn-sm" onClick={()=>setProgresModal(true)}><Upload size={12}/> Upload Bukti</button>}
+            {isPemda&&progresState.uploaded&&<button className="btn btn-warn btn-sm" onClick={()=>setProgresModal(true)}><Upload size={12}/> Ganti</button>}
             {!isPemda&&progresState.uploaded&&!progresState.verifiedPFID&&(
               <CrosscheckBtn uploaded small verifiedPFID={progresState.verifiedPFID} isPemda={isPemda} catatan={progresState.catatan}
                 onVerify={()=>onDocChange(progresDocId,{...progresState,verifiedPFID:true,tanggalVerif:new Date().toISOString().split("T")[0]})}
@@ -372,7 +484,7 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
           </div>
         </div>
       </div>
-      {progresModal&&<UploadModal label="Data Progres Keuangan & Fisik" onClose={()=>setProgresModal(false)}
+      {progresModal&&<UploadModal label="Bukti Progres Keuangan & Fisik" onClose={()=>setProgresModal(false)}
         onConfirm={()=>{ onDocChange(progresDocId,{ uploaded:true,verifiedPFID:false,catatan:"" }); setProgresModal(false); }}/>}
     </div>
   );
@@ -964,7 +1076,7 @@ export default function PemdaDetail({ pemda, provinsi, triwulan, setPage }) {
       {tab==="status"&&<TabStatus isPemda={isPemda} statusHistory={statusHistory} onUpdateHistory={setStatusHistory}
         triwulan={triwulan} twLaporanDates={{ TW1:"2024-04-05",TW2:"2024-07-06",TW3:"2024-10-04",TW4:null }}/>}
       {tab==="kontrak"&&<TabDataKontrak isPemda={isPemda} terkontrak={terkontrak} docState={docState} onDocChange={onDocChange}/>}
-      {tab==="progres"&&<TabDataProgres isPemda={isPemda} terkontrak={terkontrak} triwulan={triwulan} kegiatan={kegiatan} docState={docState} onDocChange={onDocChange}/>}
+      {tab==="progres"&&<TabDataProgres isPemda={isPemda} terkontrak={terkontrak} triwulan={triwulan} kegiatan={kegiatan} docState={docState} onDocChange={onDocChange} fisik100PerTW={fisik100PerTW} onFisik100Change={onFisik100Change}/>}
       {tab==="foto"&&<TabFotoKegiatan isPemda={isPemda} triwulan={triwulan} kegiatan={kegiatan}/>}
       {tab==="output"&&<TabRealisasiOutput kegiatan={kegiatan} isPemda={isPemda}/>}
       {tab==="kelengkapan"&&<TabKelengkapan isPemda={isPemda} terkontrak={terkontrak} triwulan={triwulan}
