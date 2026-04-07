@@ -33,109 +33,104 @@ function ExportModal({ onClose }) {
   const [done, setDone] = useState(false);
   const [selectedProv, setSelectedProv] = useState("Semua Provinsi");
 
-  function generate() {
-    setGenerating(true);
-    // Load SheetJS from multiple CDN fallbacks
-    var cdns = [
-      "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
-      "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
-      "https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"
-    ];
-    function tryLoad(idx) {
-      if(window.XLSX) return Promise.resolve();
-      if(idx >= cdns.length) return Promise.reject(new Error("Semua CDN gagal dimuat"));
-      return new Promise(function(res,rej){
-        var s=document.createElement("script");
-        s.src=cdns[idx];
-        s.onload=res;
-        s.onerror=function(){ tryLoad(idx+1).then(res).catch(rej); };
-        document.head.appendChild(s);
-      });
-    }
-    tryLoad(0).then(function(){
-      var XLSX=window.XLSX;
-      if(!XLSX){ throw new Error("SheetJS tidak tersedia"); }
-      var data = selectedProv==="Semua Provinsi" ? provinsiData : provinsiData.filter(function(p){ return p.nama===selectedProv; });
-      var aoa = [];
-
-      // Judul sesuai format referensi
-      aoa.push(["REKAPITULASI PELAPORAN ANGGARAN TA 2024"]);
-      aoa.push(["BIDANG JALAN"]);
-      aoa.push([]);
-      aoa.push([]);
-
-      // Header
-      aoa.push([
-        "NO","PROVINSI","PEMERINTAH DAERAH","PAGU ALOKASI","PAGU RENCANA KEGIATAN",
-        "Pelaporan","VERIFIKASI BALAI","VERIFIKASI PUSAT","PENYALURAN OMSPAN","PENYERAPAN OMSPAN",
-        "PROGRES KEUANGAN (%)","PROGRES FISIK (%)","FOTO TERUPLOAD","TENAGA KERJA",
-        "TANGGAL UPDATE PROGRES KEUANGAN","TANGGAL UPDATE PROGRES FISIK"
-      ]);
-
-      var TW_LABELS = ["Triwulan I","Triwulan II","Triwulan III","Triwulan IV"];
-      var rowNum = 1;
-
-      // Data: setiap PEMDA = 4 baris (TW1-TW4)
-      // Gunakan provinsiData sebagai level provinsi, dan pemda_aceh sebagai template PEMDA
-      var allEntries = [];
-      data.forEach(function(prov){
-        // Gunakan pemda_aceh sebagai sampel (ganti dengan data real per provinsi)
-        pemda_aceh.slice(0, 2).forEach(function(p){
-          allEntries.push({ no: rowNum++, provinsi: prov.nama, pemda: p.nama,
-            alokasi: p.alokasi, paguRK: p.paguRK, real: p.realisasiPct, fisik: p.progresFisik,
-            tk: p.profesional + p.semiProfesional + p.pekerja });
-        });
-      });
-
-      allEntries.forEach(function(e){
-        TW_LABELS.forEach(function(tw, ti){
-          if(ti===0){
-            aoa.push([
-              e.no, e.provinsi, e.pemda, e.alokasi, e.paguRK,
-              tw, "", "", 0, 0,
-              0, 0, 0, e.tk,
-              "-", "-"
-            ]);
-          } else {
-            aoa.push([
-              "", "", "", "", "",
-              tw, "", "",
-              ti===3 ? Math.round(e.alokasi * e.real / 100) : "",
-              ti===3 ? Math.round(e.alokasi * e.real / 100) : "",
-              ti===3 ? e.real : "",
-              ti===3 ? e.fisik : "",
-              "", "",
-              "-", "-"
-            ]);
-          }
-        });
-      });
-
-      var ws = XLSX.utils.aoa_to_sheet(aoa);
-      ws["!cols"] = [
-        {wch:5},{wch:18},{wch:24},{wch:20},{wch:20},
-        {wch:14},{wch:16},{wch:16},{wch:20},{wch:20},
-        {wch:20},{wch:16},{wch:15},{wch:14},
-        {wch:28},{wch:28}
-      ];
-      ws["!rows"] = [{hpx:20},{hpx:18},{hpx:6},{hpx:6},{hpx:45}];
-
-      // Merge judul
-      ws["!merges"] = [
-        {s:{r:0,c:0},e:{r:0,c:15}},
-        {s:{r:1,c:0},e:{r:1,c:15}},
-      ];
-
-      var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Kepatuhan BidangJALAN");
-      XLSX.writeFile(wb, "Rekap_Kepatuhan_DAK_Jalan_TA2024.xlsx");
-      setDone(true);
-    }).catch(function(e){
-      alert("Gagal export: " + (e && e.message ? e.message : "Error tidak diketahui"));
-    }).finally(function(){ setGenerating(false); });
+  function loadSheetJS(cb) {
+    if(window.XLSX) { cb(null, window.XLSX); return; }
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.onload = function() { cb(null, window.XLSX); };
+    s.onerror = function() {
+      // fallback ke cdnjs
+      var s2 = document.createElement("script");
+      s2.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      s2.onload = function() { cb(null, window.XLSX); };
+      s2.onerror = function() { cb(new Error("Gagal memuat library Excel")); };
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s);
   }
 
-  return (
+  function generate() {
+    setGenerating(true);
+    loadSheetJS(function(err, XLSX) {
+      if(err || !XLSX) {
+        alert("Gagal memuat library Excel. Pastikan koneksi internet aktif.");
+        setGenerating(false);
+        return;
+      }
+      try {
+        var data = selectedProv === "Semua Provinsi"
+          ? provinsiData
+          : provinsiData.filter(function(p) { return p.nama === selectedProv; });
+
+        var aoa = [];
+        // Baris judul
+        aoa.push(["REKAPITULASI PELAPORAN ANGGARAN TA 2024"]);
+        aoa.push(["BIDANG JALAN"]);
+        aoa.push([]);
+        aoa.push([]);
+        // Header kolom
+        aoa.push([
+          "NO","PROVINSI","PEMERINTAH DAERAH","PAGU ALOKASI (Rp)","PAGU RENCANA KEGIATAN (Rp)",
+          "Pelaporan","VERIFIKASI BALAI","VERIFIKASI PUSAT",
+          "PENYALURAN OMSPAN (Rp)","PENYERAPAN OMSPAN (Rp)",
+          "PROGRES KEUANGAN (%)","PROGRES FISIK (%)","FOTO TERUPLOAD","TENAGA KERJA",
+          "TGL UPDATE PROGRES KEU","TGL UPDATE PROGRES FISIK"
+        ]);
+
+        var TW_LABELS = ["Triwulan I","Triwulan II","Triwulan III","Triwulan IV"];
+        var rowNum = 1;
+
+        data.forEach(function(prov) {
+          // Setiap provinsi tampil sebagai 1 PEMDA sample (nanti diganti data real)
+          var tk = prov.profesional + prov.semiProfesional + prov.pekerja;
+          TW_LABELS.forEach(function(tw, ti) {
+            if(ti === 0) {
+              aoa.push([
+                rowNum, prov.nama, "(Data PEMDA)",
+                prov.alokasi, prov.paguRK,
+                tw, "", "",
+                0, 0,
+                0, 0, 0, tk,
+                "-", "-"
+              ]);
+            } else {
+              aoa.push([
+                "", "", "", "", "",
+                tw, "", "",
+                ti === 3 ? Math.round(prov.alokasi * prov.realisasiPct / 100) : "",
+                ti === 3 ? Math.round(prov.alokasi * prov.realisasiPct / 100) : "",
+                ti === 3 ? prov.realisasiPct : "",
+                ti === 3 ? prov.progresFisik : "",
+                "", "", "-", "-"
+              ]);
+            }
+          });
+          rowNum++;
+        });
+
+        var ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = [
+          {wch:5},{wch:20},{wch:26},{wch:22},{wch:22},
+          {wch:13},{wch:16},{wch:16},{wch:20},{wch:20},
+          {wch:18},{wch:16},{wch:14},{wch:13},{wch:26},{wch:26}
+        ];
+        ws["!rows"] = [{hpx:22},{hpx:18},{hpx:6},{hpx:6},{hpx:48}];
+        ws["!merges"] = [
+          {s:{r:0,c:0},e:{r:0,c:15}},
+          {s:{r:1,c:0},e:{r:1,c:15}}
+        ];
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Kepatuhan BidangJALAN");
+        XLSX.writeFile(wb, "Rekap_Kepatuhan_DAK_Jalan_TA2024.xlsx");
+        setDone(true);
+      } catch(e2) {
+        alert("Gagal export: " + (e2 && e2.message ? e2.message : "Error tidak diketahui"));
+      }
+      setGenerating(false);
+    });
+  }
+
+    return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center" }}>
       <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:28,width:480,maxWidth:"92vw" }}>
         <div style={{ display:"flex",justifyContent:"space-between",marginBottom:20 }}>

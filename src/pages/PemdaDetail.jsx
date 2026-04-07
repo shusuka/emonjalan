@@ -798,69 +798,114 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
   function handleGenerateWord() {
     setGeneratingReport(true);
     try {
-      // Generate HTML-based Word document (no CDN required)
-      var snDocs = allDocsForReport.slice();
-      var snNotOk = notOk.slice();
-      var snState = docState;
+      var snDocs    = allDocsForReport.slice();
+      var snNotOk   = notOk.slice();
+      var snState   = docState;
+      var namaOPD   = (pemda_info && pemda_info.namaOPD)  ? pemda_info.namaOPD  : (pemda || "-");
+      var tanggal   = new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"});
 
       var tableRows = snDocs.map(function(doc, i) {
-        var st = snState[doc.id] || {};
-        var statusText = st.verifiedPFID ? "Terverifikasi" : st.uploaded ? "Diupload" : "Belum Upload";
-        var statusColor = st.verifiedPFID ? "#c6efce" : st.uploaded ? "#ffeb9c" : "#ffc7ce";
-        var catatanText = st.catatan || "-";
-        return "<tr><td style='border:1px solid #ccc;padding:6px;text-align:center'>"+(i+1)+"</td>"
-          + "<td style='border:1px solid #ccc;padding:6px'>"+doc.label+(doc.required?" <b style='color:red'>*wajib</b>":"")+"</td>"
-          + "<td style='border:1px solid #ccc;padding:6px;text-align:center;background:"+statusColor+"'>"+statusText+"</td>"
-          + "<td style='border:1px solid #ccc;padding:6px'>"+catatanText+"</td></tr>";
+        var st       = snState[doc.id] || {};
+        var wajib    = doc.required ? "Ya" : "Tidak";
+        var status   = st.verifiedPFID ? "Terverifikasi" : st.uploaded ? "Menunggu Verif" : "Belum Upload";
+        var bg       = st.verifiedPFID ? "#c6efce" : st.uploaded ? "#ffeb9c" : "#ffc7ce";
+        var catatan  = st.catatan || "-";
+        return "<tr>"
+          + "<td style='border:1px solid #000;padding:5px 8px;text-align:center'>"+(i+1)+"</td>"
+          + "<td style='border:1px solid #000;padding:5px 8px'>"+doc.label+"</td>"
+          + "<td style='border:1px solid #000;padding:5px 8px;text-align:center;font-weight:bold'>"+wajib+"</td>"
+          + "<td style='border:1px solid #000;padding:5px 8px;text-align:center;background:"+bg+";font-weight:bold'>"+status+"</td>"
+          + "<td style='border:1px solid #000;padding:5px 8px'>"+catatan+"</td></tr>";
       }).join("");
 
-      var notOkList = snNotOk.length === 0
-        ? "<p style='color:#375623'>&#x2713; Semua dokumen sudah sesuai.</p>"
-        : "<ul>"+snNotOk.map(function(doc) {
-            var st = snState[doc.id] || {};
-            return "<li><strong>"+doc.label+"</strong>"+(st.catatan ? " &mdash; <em>"+st.catatan+"</em>" : "")+((!st.uploaded)?" (Belum diupload)":"")+"</li>";
-          }).join("")+"</ul>";
+      var totalDok = snDocs.length;
+      var uploaded = snDocs.filter(function(d){ return (snState[d.id]||{}).uploaded; }).length;
+      var verified = snDocs.filter(function(d){ return (snState[d.id]||{}).verifiedPFID; }).length;
+      var belumOk  = snNotOk.length;
 
-      var tanggal = new Date().toLocaleDateString("id-ID", {day:"2-digit",month:"long",year:"numeric"});
+      var tindakList = belumOk === 0
+        ? "<p style='color:#375623'>Seluruh dokumen telah sesuai dan lengkap.</p>"
+        : "<ul style='margin:4pt 0 0 0'>" + snNotOk.map(function(doc){
+            var st  = snState[doc.id] || {};
+            var ket = st.catatan ? " &mdash; " + st.catatan : "";
+            var ext = !st.uploaded ? " (belum diunggah)" : " (menunggu verifikasi PFID)";
+            return "<li style='margin-bottom:4pt'>"+doc.label+ket+ext+"</li>";
+          }).join("") + "</ul>";
 
       var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-        + "<style>body{font-family:Arial,sans-serif;font-size:11pt;margin:2cm}"
-        + "h1{color:#1F4E79;font-size:16pt}h2{color:#2E4057;font-size:13pt;margin-top:18pt}"
-        + "table{border-collapse:collapse;width:100%}th{background:#1F4E79;color:white;padding:7px;font-size:10pt}"
-        + "td{font-size:10pt}.footer{font-size:9pt;color:#888;margin-top:24pt}</style>"
-        + "</head><body>"
-        + "<h1>LAPORAN VERIFIKASI PFID</h1>"
-        + "<p style='color:#444;font-size:12pt'>DAK Bidang Jalan TA 2024 &mdash; "+triwulan+"</p><hr>"
-        + "<p><strong>PEMDA:</strong> "+(pemda||"-")+"</p>"
-        + "<p><strong>OPD:</strong> "+(pemda_info&&pemda_info.namaOPD||"-")+"&nbsp;&nbsp;|&nbsp;&nbsp;"
-        + "<strong>Kontak:</strong> +"+(pemda_info&&pemda_info.noHPOPD||"-")+"</p>"
-        + "<h2>Ringkasan Kelengkapan Dokumen</h2>"
+        + "<style>body{font-family:Arial,sans-serif;font-size:11pt;margin:2.5cm 2cm;color:#000}"
+        + "h1{font-size:13pt;text-align:center;margin:0 0 2pt 0}"
+        + "h2{font-size:11pt;margin:14pt 0 6pt 0}"
+        + ".kop{text-align:center;margin-bottom:14pt;border-bottom:3px double #000;padding-bottom:10pt}"
+        + "table{border-collapse:collapse;width:100%}"
+        + "th{border:1px solid #000;padding:5px 8px;background:#1F4E79;color:#fff;font-size:10pt;text-align:center}"
+        + "td{font-size:10pt}"
+        + ".it td{border:none;padding:2pt 6pt;vertical-align:top}"
+        + ".it .lb{width:120pt;font-weight:bold}.it .sp{width:10pt;text-align:center}"
+        + ".section{margin-top:14pt}"
+        + ".footer-note{font-style:italic;font-size:9.5pt;margin-top:10pt;border-top:1px solid #ccc;padding-top:6pt}"
+        + "</style></head><body>"
+        + "<div class='kop'>"
+        + "<h1>KEMENTERIAN PEKERJAAN UMUM DAN PERUMAHAN RAKYAT</h1>"
+        + "<h1>DIREKTORAT JENDERAL BINA MARGA</h1>"
+        + "<h1>PUSAT FASILITASI INFRASTRUKTUR DAERAH (PFID)</h1>"
+        + "<p style='font-size:13pt;font-weight:bold;margin-top:6pt'>LAPORAN HASIL VERIFIKASI DOKUMEN</p>"
+        + "<p style='font-size:12pt;font-weight:bold'>DAK BIDANG JALAN &mdash; "+triwulan.toUpperCase()+" TAHUN ANGGARAN 2024</p>"
+        + "<p>Pemerintah Daerah: <strong>"+(pemda||"-")+"</strong></p></div>"
+        + "<table class='it' style='margin-bottom:12pt'><tbody>"
+        + "<tr><td class='lb'>Kepada Yth.</td><td class='sp'>:</td><td><strong>Kepala "+namaOPD+"</strong></td></tr>"
+        + "<tr><td class='lb'>Perihal</td><td class='sp'>:</td><td><strong>Hasil Verifikasi Kelengkapan Dokumen "+triwulan+" DAK Bidang Jalan TA 2024</strong></td></tr>"
+        + "<tr><td class='lb'>Tanggal Laporan</td><td class='sp'>:</td><td>"+tanggal+"</td></tr>"
+        + "</tbody></table>"
+        + "<div class='section'><h2>I.&nbsp; RINGKASAN HASIL VERIFIKASI</h2>"
+        + "<p>Berdasarkan hasil verifikasi yang dilakukan oleh PFID Kementerian PUPR terhadap kelengkapan dokumen "
+        + triwulan+" DAK Bidang Jalan Tahun Anggaran 2024 untuk "+(pemda||"-")+", diperoleh hasil sebagai berikut:</p>"
+        + "<table style='margin-top:8pt'><tbody>"
+        + "<tr><td style='border:1px solid #000;padding:5px 8px;font-weight:bold;background:#f0f0f0'>URAIAN</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold;background:#f0f0f0'>KETERANGAN</td></tr>"
+        + "<tr><td style='border:1px solid #000;padding:5px 8px'>Total Dokumen yang Dipersyaratkan</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+totalDok+" dokumen</td></tr>"
+        + "<tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Telah Diupload</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+uploaded+" dokumen</td></tr>"
+        + "<tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Terverifikasi PFID</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+verified+" dokumen</td></tr>"
+        + "<tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Belum Sesuai / Belum Upload</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+belumOk+" dokumen</td></tr>"
+        + "</tbody></table></div>"
+        + "<div class='section'><h2>II.&nbsp; DETAIL KELENGKAPAN DOKUMEN</h2>"
         + "<table><thead><tr>"
-        + "<th style='width:5%'>No</th><th style='width:45%'>Dokumen</th>"
-        + "<th style='width:18%'>Status</th><th style='width:32%'>Catatan Verifikator</th>"
-        + "</tr></thead><tbody>"+tableRows+"</tbody></table>"
-        + "<h2 style='color:#C00000'>Dokumen Belum Sesuai</h2>"
-        + notOkList
-        + "<p class='footer'>Diterbitkan oleh PFID &mdash; "+tanggal+"</p>"
+        + "<th style='width:4%'>NO</th><th style='width:36%'>DOKUMEN</th>"
+        + "<th style='width:8%'>WAJIB</th><th style='width:14%'>STATUS</th>"
+        + "<th style='width:38%'>CATATAN PFID</th>"
+        + "</tr></thead><tbody>"+tableRows+"</tbody></table></div>"
+        + "<div class='section'><h2>III.&nbsp; TINDAK LANJUT YANG DIPERLUKAN</h2>"
+        + "<p>Berdasarkan hasil verifikasi di atas, kami memohon kepada Pemerintah Daerah untuk segera menindaklanjuti hal-hal berikut:</p>"
+        + tindakList
+        + "<p class='footer-note'>Mohon dokumen yang belum sesuai segera dilengkapi melalui sistem eMonitoring DAK paling lambat 7 hari kerja setelah surat ini diterima.</p>"
+        + "</div>"
+        + "<div class='section'><h2>IV.&nbsp; PENUTUP</h2>"
+        + "<p>Demikian laporan hasil verifikasi ini kami sampaikan. Atas perhatian dan kerja sama Saudara, kami ucapkan terima kasih.</p>"
+        + "<div style='margin-top:40pt;text-align:right'>"
+        + "<p>Jakarta, "+tanggal+"</p>"
+        + "<p>Kepala Pusat Fasilitasi Infrastruktur Daerah</p>"
+        + "<p>Kementerian PUPR</p>"
+        + "<p style='margin-top:60pt'>(.......................................)</p>"
+        + "<p>NIP. ......................................</p>"
+        + "</div></div>"
         + "</body></html>";
 
-      var blob = new Blob([html], { type: "application/msword" });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = "Laporan_"+triwulan+"_"+(pemda||"").split(" ").join("_")+".doc";
+      var blob = new Blob([html], { type: "application/msword;charset=utf-8" });
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement("a");
+      a.href   = url;
+      a.download = "Laporan_Verifikasi_"+triwulan+"_"+(pemda||"").split(" ").join("_")+".doc";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       setReportDone(true);
     } catch(e) {
-      console.error(e);
       alert("Gagal generate Word: " + (e && e.message ? e.message : "Error tidak diketahui"));
     } finally {
       setGeneratingReport(false);
     }
   }
+
 
     // Dokumen berdasarkan status pengadaan (sebelum Terkontrak)
   if (!terkontrak) {
