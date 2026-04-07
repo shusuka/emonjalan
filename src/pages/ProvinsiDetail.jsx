@@ -20,7 +20,7 @@ function ProgressBar({ value, color }) {
 }
 
 export default function ProvinsiDetail({ provinsi, triwulan, setPage }) {
-  const [viewMode, setViewMode] = useState("perBidang");
+  const [viewMode, setViewMode] = useState("perPemda");
   const data = pemda_aceh; // Use Aceh data as sample for all provinces
 
   const totalAlokasi = data.reduce((s, p) => s + p.alokasi, 0);
@@ -66,11 +66,7 @@ export default function ProvinsiDetail({ provinsi, triwulan, setPage }) {
         </div>
       </div>
 
-      {/* View mode tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <button className={`wilayah-btn ${viewMode === "perBidang" ? "active" : ""}`} onClick={() => setViewMode("perBidang")}>Per-Bidang</button>
-        <button className={`wilayah-btn ${viewMode === "perPemda" ? "active" : ""}`} onClick={() => setViewMode("perPemda")}>Per-Pemda</button>
-      </div>
+
 
       <div className="table-wrap">
         <div className="table-header">

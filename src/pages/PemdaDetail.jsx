@@ -264,6 +264,7 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
   const [inputRealisasiPct, setInputRealisasiPct] = useState(String(kegiatan.realisasiPct || ""));
   const [inputFisikPct, setInputFisikPct] = useState(String(kegiatan.fisik || ""));
   const [inputRealisasiRP, setInputRealisasiRP] = useState(String(kegiatan.realisasiRP || ""));
+  const [inputFisikKm, setInputFisikKm] = useState(String(kegiatan.panjang || ""));
   const [savedProgres, setSavedProgres] = useState(false);
 
   const progresDocId = { TW1:"progres_keu",TW2:"progres_keu_tw2",TW3:"progres_keu_tw3",TW4:"progres_keu_tw4" }[triwulan]||"progres_keu";
@@ -311,63 +312,74 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
             <TrendingUp size={14} color={S.accent}/> Input Progres {triwulan}
             {isLockedByPrev && <span className="badge badge-green" style={{ marginLeft:8 }}>Auto 100% dari {prevTW}</span>}
           </div>
-          <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:14 }}>
-            <div>
-              <label style={{ fontSize:11,fontWeight:700,color:S.muted,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.04em" }}>
-                Realisasi Keuangan (%)
-              </label>
-              <div style={{ display:"flex",alignItems:"center",gap:8,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,padding:"8px 12px" }}>
-                <input
-                  type="number" min="0" max="100" step="0.01"
-                  value={currentIs100?"100":inputRealisasiPct}
-                  onChange={e=>setInputRealisasiPct(e.target.value)}
-                  disabled={isLockedByPrev||currentIs100}
-                  style={{ background:"none",border:"none",color:S.text,fontSize:16,fontWeight:700,flex:1,outline:"none",width:"100%" }}
-                  placeholder="0.00"
-                />
-                <span style={{ color:S.muted,fontSize:13 }}>%</span>
+          {/* Layout 2 kolom sesuai format: Progres Keuangan | Progres Fisik */}
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:14 }}>
+            {/* PROGRES KEUANGAN Terhadap Kontrak */}
+            <div style={{ border:`1px solid ${S.border}`,borderRadius:10,overflow:"hidden" }}>
+              <div style={{ background:"var(--surface2)",padding:"8px 14px",textAlign:"center",borderBottom:`1px solid ${S.border}`,fontWeight:700,fontSize:12,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em" }}>
+                PROGRES KEUANGAN
+                <div style={{ fontSize:10,fontWeight:400,color:S.dim }}>Terhadap Kontrak</div>
               </div>
-              {inputRealisasiPct && (
-                <div style={{ marginTop:6,height:4,background:S.border,borderRadius:99,overflow:"hidden" }}>
-                  <div style={{ width:`${Math.min(parseFloat(inputRealisasiPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(inputRealisasiPct)||0),borderRadius:99 }}/>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr" }}>
+                <div style={{ padding:"10px 12px",borderRight:`1px solid ${S.border}` }}>
+                  <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>Rp</div>
+                  <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
+                    <span style={{ color:S.muted,fontSize:11 }}>Rp</span>
+                    <input type="number" min="0"
+                      value={inputRealisasiRP}
+                      onChange={e=>setInputRealisasiRP(e.target.value)}
+                      disabled={isLockedByPrev}
+                      style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:600,flex:1,outline:"none",width:"100%",minWidth:0 }}
+                      placeholder="0"/>
+                  </div>
                 </div>
-              )}
-            </div>
-            <div>
-              <label style={{ fontSize:11,fontWeight:700,color:S.muted,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.04em" }}>
-                Progres Fisik (%)
-              </label>
-              <div style={{ display:"flex",alignItems:"center",gap:8,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,padding:"8px 12px" }}>
-                <input
-                  type="number" min="0" max="100" step="0.01"
-                  value={currentIs100?"100":inputFisikPct}
-                  onChange={e=>setInputFisikPct(e.target.value)}
-                  disabled={isLockedByPrev||currentIs100}
-                  style={{ background:"none",border:"none",color:S.text,fontSize:16,fontWeight:700,flex:1,outline:"none",width:"100%" }}
-                  placeholder="0.00"
-                />
-                <span style={{ color:S.muted,fontSize:13 }}>%</span>
+                <div style={{ padding:"10px 12px" }}>
+                  <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>%</div>
+                  <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
+                    <input type="number" min="0" max="100" step="0.01"
+                      value={currentIs100?"100":inputRealisasiPct}
+                      onChange={e=>setInputRealisasiPct(e.target.value)}
+                      disabled={isLockedByPrev||currentIs100}
+                      style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:700,flex:1,outline:"none",width:"100%",minWidth:0 }}
+                      placeholder="0.00"/>
+                    <span style={{ color:S.muted,fontSize:11 }}>%</span>
+                  </div>
+                  {inputRealisasiPct && <div style={{ marginTop:4,height:3,background:S.border,borderRadius:99,overflow:"hidden" }}><div style={{ width:`${Math.min(parseFloat(inputRealisasiPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(inputRealisasiPct)||0) }}/></div>}
+                </div>
               </div>
-              {inputFisikPct && (
-                <div style={{ marginTop:6,height:4,background:S.border,borderRadius:99,overflow:"hidden" }}>
-                  <div style={{ width:`${Math.min(parseFloat(inputFisikPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(inputFisikPct)||0),borderRadius:99 }}/>
-                </div>
-              )}
             </div>
-            <div>
-              <label style={{ fontSize:11,fontWeight:700,color:S.muted,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.04em" }}>
-                Realisasi Keuangan (Rp)
-              </label>
-              <div style={{ display:"flex",alignItems:"center",gap:8,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,padding:"8px 12px" }}>
-                <span style={{ color:S.muted,fontSize:13 }}>Rp</span>
-                <input
-                  type="number" min="0"
-                  value={inputRealisasiRP}
-                  onChange={e=>setInputRealisasiRP(e.target.value)}
-                  disabled={isLockedByPrev}
-                  style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:600,flex:1,outline:"none",width:"100%" }}
-                  placeholder="0"
-                />
+            {/* PROGRES FISIK Terhadap Kontrak */}
+            <div style={{ border:`1px solid ${S.border}`,borderRadius:10,overflow:"hidden" }}>
+              <div style={{ background:"var(--surface2)",padding:"8px 14px",textAlign:"center",borderBottom:`1px solid ${S.border}`,fontWeight:700,fontSize:12,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em" }}>
+                PROGRES FISIK
+                <div style={{ fontSize:10,fontWeight:400,color:S.dim }}>Terhadap Kontrak</div>
+              </div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr" }}>
+                <div style={{ padding:"10px 12px",borderRight:`1px solid ${S.border}` }}>
+                  <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>Km</div>
+                  <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
+                    <input type="number" min="0" step="0.001"
+                      value={inputFisikKm}
+                      onChange={e=>setInputFisikKm(e.target.value)}
+                      disabled={isLockedByPrev}
+                      style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:600,flex:1,outline:"none",width:"100%",minWidth:0 }}
+                      placeholder="0.000"/>
+                    <span style={{ color:S.muted,fontSize:11 }}>km</span>
+                  </div>
+                </div>
+                <div style={{ padding:"10px 12px" }}>
+                  <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>%</div>
+                  <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
+                    <input type="number" min="0" max="100" step="0.01"
+                      value={currentIs100?"100":inputFisikPct}
+                      onChange={e=>setInputFisikPct(e.target.value)}
+                      disabled={isLockedByPrev||currentIs100}
+                      style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:700,flex:1,outline:"none",width:"100%",minWidth:0 }}
+                      placeholder="0.00"/>
+                    <span style={{ color:S.muted,fontSize:11 }}>%</span>
+                  </div>
+                  {inputFisikPct && <div style={{ marginTop:4,height:3,background:S.border,borderRadius:99,overflow:"hidden" }}><div style={{ width:`${Math.min(parseFloat(inputFisikPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(inputFisikPct)||0) }}/></div>}
+                </div>
               </div>
             </div>
           </div>
@@ -846,8 +858,8 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
         + ".footer-note{font-style:italic;font-size:9.5pt;margin-top:10pt;border-top:1px solid #ccc;padding-top:6pt}"
         + "</style></head><body>"
         + "<div class='kop'>"
-        + "<h1>KEMENTERIAN PEKERJAAN UMUM DAN PERUMAHAN RAKYAT</h1>"
-        + "<h1>DIREKTORAT JENDERAL BINA MARGA</h1>"
+        + "<h1>KEMENTERIAN PEKERJAAN UMUM</h1>"
+        + "<h1>SEKRETARIAT JENDERAL</h1>"
         + "<h1>PUSAT FASILITASI INFRASTRUKTUR DAERAH (PFID)</h1>"
         + "<p style='font-size:13pt;font-weight:bold;margin-top:6pt'>LAPORAN HASIL VERIFIKASI DOKUMEN</p>"
         + "<p style='font-size:12pt;font-weight:bold'>DAK BIDANG JALAN &mdash; "+triwulan.toUpperCase()+" TAHUN ANGGARAN 2024</p>"

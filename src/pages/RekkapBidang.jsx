@@ -62,69 +62,102 @@ function ExportModal({ onClose }) {
           ? provinsiData
           : provinsiData.filter(function(p) { return p.nama === selectedProv; });
 
-        var aoa = [];
-        // Baris judul
-        aoa.push(["REKAPITULASI PELAPORAN ANGGARAN TA 2024"]);
-        aoa.push(["BIDANG JALAN"]);
-        aoa.push([]);
-        aoa.push([]);
-        // Header kolom
-        aoa.push([
-          "NO","PROVINSI","PEMERINTAH DAERAH","PAGU ALOKASI (Rp)","PAGU RENCANA KEGIATAN (Rp)",
-          "Pelaporan","VERIFIKASI BALAI","VERIFIKASI PUSAT",
-          "PENYALURAN OMSPAN (Rp)","PENYERAPAN OMSPAN (Rp)",
-          "PROGRES KEUANGAN (%)","PROGRES FISIK (%)","FOTO TERUPLOAD","TENAGA KERJA",
-          "TGL UPDATE PROGRES KEU","TGL UPDATE PROGRES FISIK"
-        ]);
-
+        var judul1 = "REKAPITULASI PELAPORAN ANGGARAN TA 2024";
+        var judul2 = "BIDANG JALAN";
         var TW_LABELS = ["Triwulan I","Triwulan II","Triwulan III","Triwulan IV"];
-        var rowNum = 1;
-
-        data.forEach(function(prov) {
-          // Setiap provinsi tampil sebagai 1 PEMDA sample (nanti diganti data real)
-          var tk = prov.profesional + prov.semiProfesional + prov.pekerja;
-          TW_LABELS.forEach(function(tw, ti) {
-            if(ti === 0) {
-              aoa.push([
-                rowNum, prov.nama, "(Data PEMDA)",
-                prov.alokasi, prov.paguRK,
-                tw, "", "",
-                0, 0,
-                0, 0, 0, tk,
-                "-", "-"
-              ]);
-            } else {
-              aoa.push([
-                "", "", "", "", "",
-                tw, "", "",
-                ti === 3 ? Math.round(prov.alokasi * prov.realisasiPct / 100) : "",
-                ti === 3 ? Math.round(prov.alokasi * prov.realisasiPct / 100) : "",
-                ti === 3 ? prov.realisasiPct : "",
-                ti === 3 ? prov.progresFisik : "",
-                "", "", "-", "-"
-              ]);
-            }
-          });
-          rowNum++;
-        });
-
-        var ws = XLSX.utils.aoa_to_sheet(aoa);
-        ws["!cols"] = [
-          {wch:5},{wch:20},{wch:26},{wch:22},{wch:22},
-          {wch:13},{wch:16},{wch:16},{wch:20},{wch:20},
-          {wch:18},{wch:16},{wch:14},{wch:13},{wch:26},{wch:26}
-        ];
-        ws["!rows"] = [{hpx:22},{hpx:18},{hpx:6},{hpx:6},{hpx:48}];
-        ws["!merges"] = [
-          {s:{r:0,c:0},e:{r:0,c:15}},
-          {s:{r:1,c:0},e:{r:1,c:15}}
-        ];
+        var TW_KEYS   = ["TW1","TW2","TW3","TW4"];
         var wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Kepatuhan BidangJALAN");
+
+        /* =============================================
+           SHEET 1: Pelaporan
+           NO | PROVINSI | PEMDA | TW1 | TW2 | TW3 | TW4 | TOTAL | TGL TW1..4
+        ============================================= */
+        var aoa1 = [];
+        aoa1.push([judul1]); aoa1.push([judul2]); aoa1.push([]); aoa1.push([]);
+        // Row 4: sub-header "Pelaporan" spanning TW cols
+        aoa1.push(["","","","Pelaporan"]);
+        // Row 5: header
+        aoa1.push([
+          "NO","PROVINSI","PEMERINTAH DAERAH",
+          "Triwulan 1","Triwulan 2","Triwulan 3","Triwulan 4","TOTAL",
+          "TANGGAL UPDATE Lapor TW 1","TANGGAL UPDATE Lapor TW 2",
+          "TANGGAL UPDATE Lapor TW 3","TANGGAL UPDATE Lapor TW 4"
+        ]);
+        var rowNum = 1;
+        data.forEach(function(prov) {
+          pemda_aceh.forEach(function(p) {
+            // TW1-4: nilai 1 jika sudah lapor, 0 jika belum (mock: TW4=1)
+            var tw = [1,1,1,1];
+            aoa1.push([
+              rowNum, prov.nama, p.nama,
+              tw[0],tw[1],tw[2],tw[3], tw[0]+tw[1]+tw[2]+tw[3],
+              "-","-","-","-"
+            ]);
+            rowNum++;
+          });
+        });
+        var ws1 = XLSX.utils.aoa_to_sheet(aoa1);
+        ws1["!cols"] = [{wch:5},{wch:18},{wch:24},{wch:12},{wch:12},{wch:12},{wch:12},{wch:8},{wch:26},{wch:26},{wch:26},{wch:26}];
+        ws1["!rows"] = [{hpx:20},{hpx:16},{hpx:6},{hpx:6},{hpx:20},{hpx:40}];
+        ws1["!merges"] = [
+          {s:{r:0,c:0},e:{r:0,c:11}},
+          {s:{r:1,c:0},e:{r:1,c:11}},
+          {s:{r:4,c:3},e:{r:4,c:6}}
+        ];
+        XLSX.utils.book_append_sheet(wb, ws1, "Pelaporan");
+
+        /* =============================================
+           SHEET 2: Progress
+           NO | PROVINSI | PEMDA | Vol | PAGU ALOKASI | PAGU RK | NILAI KONTRAK | REALISASI
+           PROGRES KEUANGAN (Rp, %) | PROGRES FISIK (Km, %) | VERIF PUSAT | TGL UPDATE
+        ============================================= */
+        var aoa2 = [];
+        aoa2.push([judul1]); aoa2.push([judul2]); aoa2.push([]);
+        // Row 4: group headers
+        aoa2.push(["","","","","","","","","PROGRES KEUANGAN Terhadap Kontrak","","PROGRES FISIK Terhadap Kontrak","","",""]);
+        // Row 5: column headers
+        aoa2.push([
+          "NO","PROVINSI","PEMERINTAH DAERAH","Vol",
+          "PAGU ALOKASI Sesuai PMK","PAGU RK (Rp)","NILAI KONTRAK (Rp)","REALISASI (Rp)",
+          "Rp","%","Km","%",
+          "VERIFIKASI PUSAT","TANGGAL UPDATE PROGRES"
+        ]);
+        var rowNum2 = 1;
+        data.forEach(function(prov) {
+          pemda_aceh.forEach(function(p) {
+            var nilaiKontrak = p.paguRK * 0.98;
+            var realisasi   = Math.round(nilaiKontrak * p.realisasiPct / 100);
+            var fisikKm     = 1.5 * p.progresFisik / 100;  // default panjang 1.5km
+            aoa2.push([
+              rowNum2, prov.nama, p.nama, 2,
+              p.alokasi, p.paguRK, nilaiKontrak, realisasi,
+              realisasi, parseFloat((p.realisasiPct/100).toFixed(4)),
+              parseFloat(fisikKm.toFixed(3)), parseFloat((p.progresFisik/100).toFixed(4)),
+              0, "-"
+            ]);
+            rowNum2++;
+          });
+        });
+        var ws2 = XLSX.utils.aoa_to_sheet(aoa2);
+        ws2["!cols"] = [
+          {wch:5},{wch:18},{wch:24},{wch:5},
+          {wch:22},{wch:18},{wch:20},{wch:20},
+          {wch:20},{wch:10},{wch:10},{wch:10},
+          {wch:16},{wch:26}
+        ];
+        ws2["!rows"] = [{hpx:20},{hpx:16},{hpx:6},{hpx:40},{hpx:40}];
+        ws2["!merges"] = [
+          {s:{r:0,c:0},e:{r:0,c:13}},
+          {s:{r:1,c:0},e:{r:1,c:13}},
+          {s:{r:3,c:8},e:{r:3,c:9}},
+          {s:{r:3,c:10},e:{r:3,c:11}}
+        ];
+        XLSX.utils.book_append_sheet(wb, ws2, "Progress");
         XLSX.writeFile(wb, "Rekap_Kepatuhan_DAK_Jalan_TA2024.xlsx");
         setDone(true);
       } catch(e2) {
-        alert("Gagal export: " + (e2 && e2.message ? e2.message : "Error tidak diketahui"));
+        alert("Gagal export: " + (e2 && e2.message ? e2.message : String(e2)));
+        console.error(e2);
       }
       setGenerating(false);
     });
