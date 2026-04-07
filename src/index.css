@@ -448,3 +448,5 @@ td.link:hover { text-decoration: underline; }
 
 /* ── Edit icon ── */
 .btn-edit { padding: 4px 8px; }
+
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}

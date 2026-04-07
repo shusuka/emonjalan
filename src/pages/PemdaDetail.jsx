@@ -798,40 +798,63 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
   function handleGenerateWord() {
     setGeneratingReport(true);
     var loadDocx = new Promise(function(res,rej){
-      if(window.docx){ res(); return; }
+      if(window.docx && window.docx.Packer){ res(); return; }
       var s=document.createElement('script');
-      s.src='https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js';
-      s.onload=res; s.onerror=rej;
+      s.src='https://unpkg.com/docx@7.8.2/build/index.umd.js';
+      s.onload=function(){ res(); };
+      s.onerror=function(){ rej(new Error("Gagal memuat library docx")); };
       document.head.appendChild(s);
     });
     loadDocx.then(function(){
       var d=window.docx;
-      var border={style:d.BorderStyle.SINGLE,size:1,color:"CCCCCC"};
+      if(!d||!d.Packer) throw new Error("Library docx tidak tersedia");
+      var border={style:"single",size:1,color:"CCCCCC"};
       var borders={top:border,bottom:border,left:border,right:border};
-      function hCell(text,w){ return new d.TableCell({ borders, width:w?{size:w,type:d.WidthType.PERCENTAGE}:undefined, shading:{fill:"1F4E79",type:d.ShadingType.CLEAR}, verticalAlign:d.VerticalAlign.CENTER, margins:{top:80,bottom:80,left:120,right:120}, children:[new d.Paragraph({alignment:d.AlignmentType.CENTER,children:[new d.TextRun({text:text,bold:true,color:"FFFFFF",size:18,font:"Arial"})]})] }); }
-      function dCell(text,opts){ opts=opts||{}; return new d.TableCell({ borders, width:opts.w?{size:opts.w,type:d.WidthType.PERCENTAGE}:undefined, shading:opts.fill?{fill:opts.fill,type:d.ShadingType.CLEAR}:undefined, verticalAlign:d.VerticalAlign.CENTER, margins:{top:60,bottom:60,left:120,right:120}, children:[new d.Paragraph({alignment:opts.center?d.AlignmentType.CENTER:d.AlignmentType.LEFT,children:[new d.TextRun({text:String(text||"-"),size:18,font:"Arial",bold:opts.bold||false})]})] }); }
-      var snapDocs = allDocsForReport.slice();
-      var snapNotOk = notOk.slice();
-      var snapDocState = docState;
-      var doc = new d.Document({ sections:[{ children:[
-        new d.Paragraph({heading:d.HeadingLevel.HEADING_1, children:[new d.TextRun({text:"LAPORAN VERIFIKASI PFID",bold:true,size:28,font:"Arial",color:"1F4E79"})]}),
+      function hCell(text,w){
+        return new d.TableCell({ borders:borders, width:w?{size:w,type:"pct"}:undefined,
+          shading:{fill:"1F4E79",type:"clear"}, verticalAlign:"center",
+          margins:{top:80,bottom:80,left:120,right:120},
+          children:[new d.Paragraph({alignment:"center",children:[new d.TextRun({text:text,bold:true,color:"FFFFFF",size:18,font:"Arial"})]})] });
+      }
+      function dCell(text,opts){
+        opts=opts||{};
+        return new d.TableCell({ borders:borders, width:opts.w?{size:opts.w,type:"pct"}:undefined,
+          shading:opts.fill?{fill:opts.fill,type:"clear"}:undefined, verticalAlign:"center",
+          margins:{top:60,bottom:60,left:120,right:120},
+          children:[new d.Paragraph({alignment:opts.center?"center":"left",children:[new d.TextRun({text:String(text||"-"),size:18,font:"Arial",bold:opts.bold||false})]})] });
+      }
+      var snapDocs=allDocsForReport.slice();
+      var snapNotOk=notOk.slice();
+      var snapDocState=docState;
+      var doc=new d.Document({ sections:[{ children:[
+        new d.Paragraph({heading:"Heading1",children:[new d.TextRun({text:"LAPORAN VERIFIKASI PFID",bold:true,size:28,font:"Arial",color:"1F4E79"})]}),
         new d.Paragraph({children:[new d.TextRun({text:"DAK Bidang Jalan TA 2024 - "+triwulan,size:22,font:"Arial",color:"444444"})]}),
-        new d.Paragraph({children:[new d.TextRun({text:" ",size:18})]}),
+        new d.Paragraph({children:[new d.TextRun({text:" "})]}),
         new d.Paragraph({children:[new d.TextRun({text:"PEMDA: "+(pemda||"-"),bold:true,size:22,font:"Arial"})]}),
         new d.Paragraph({children:[new d.TextRun({text:"OPD: "+(pemda_info&&pemda_info.namaOPD||"-")+"  |  Kontak: +"+(pemda_info&&pemda_info.noHPOPD||"-"),size:18,font:"Arial",color:"666666"})]}),
-        new d.Paragraph({children:[new d.TextRun({text:" ",size:18})]}),
-        new d.Paragraph({heading:d.HeadingLevel.HEADING_2, children:[new d.TextRun({text:"Ringkasan Kelengkapan Dokumen",bold:true,size:24,font:"Arial",color:"2E4057"})]}),
-        new d.Table({ width:{size:100,type:d.WidthType.PERCENTAGE}, rows:[
+        new d.Paragraph({children:[new d.TextRun({text:" "})]}),
+        new d.Paragraph({heading:"Heading2",children:[new d.TextRun({text:"Ringkasan Kelengkapan Dokumen",bold:true,size:22,font:"Arial"})]}),
+        new d.Table({ width:{size:100,type:"pct"}, rows:[
           new d.TableRow({children:[hCell("No",8),hCell("Dokumen",50),hCell("Status",20),hCell("Keterangan",22)]}),
-          ...snapDocs.map(function(doc,i){ var st=snapDocState[doc.id]||{}; return new d.TableRow({children:[ dCell(String(i+1),{w:8,center:true}), dCell(doc.label,{w:50}), dCell(st.verifiedPFID?"Terverifikasi":st.uploaded?"Diupload":"Belum Upload",{w:20,center:true,fill:st.verifiedPFID?"E2F0D9":st.uploaded?"FFF2CC":"FFE7E7"}), dCell(st.catatan||"-",{w:22}) ]}); }),
+          ...snapDocs.map(function(doc,i){
+            var st=snapDocState[doc.id]||{};
+            return new d.TableRow({children:[
+              dCell(String(i+1),{w:8,center:true}),
+              dCell(doc.label,{w:50}),
+              dCell(st.verifiedPFID?"Terverifikasi":st.uploaded?"Diupload":"Belum Upload",{w:20,center:true,fill:st.verifiedPFID?"E2F0D9":st.uploaded?"FFF2CC":"FFE7E7"}),
+              dCell(st.catatan||"-",{w:22})
+            ]});
+          }),
         ]}),
-        new d.Paragraph({children:[new d.TextRun({text:" ",size:18})]}),
-        new d.Paragraph({heading:d.HeadingLevel.HEADING_2, children:[new d.TextRun({text:"Dokumen Belum Sesuai",bold:true,size:24,font:"Arial",color:"C00000"})]}),
+        new d.Paragraph({children:[new d.TextRun({text:" "})]}),
+        new d.Paragraph({heading:"Heading2",children:[new d.TextRun({text:"Dokumen Belum Sesuai",bold:true,size:22,font:"Arial",color:"C00000"})]}),
         ...(snapNotOk.length===0
           ? [new d.Paragraph({children:[new d.TextRun({text:"Semua dokumen sudah sesuai.",size:18,font:"Arial",color:"375623"})]})]
-          : snapNotOk.map(function(doc){ return new d.Paragraph({bullet:{level:0},children:[new d.TextRun({text:doc.label+(snapDocState[doc.id]&&snapDocState[doc.id].catatan?" - "+snapDocState[doc.id].catatan:""),size:18,font:"Arial"})]}); })
+          : snapNotOk.map(function(doc){
+              return new d.Paragraph({bullet:{level:0},children:[new d.TextRun({text:doc.label+(snapDocState[doc.id]&&snapDocState[doc.id].catatan?" - "+snapDocState[doc.id].catatan:""),size:18,font:"Arial"})]});
+            })
         ),
-        new d.Paragraph({children:[new d.TextRun({text:" ",size:18})]}),
+        new d.Paragraph({children:[new d.TextRun({text:" "})]}),
         new d.Paragraph({children:[new d.TextRun({text:"Diterbitkan oleh PFID - "+new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"}),size:16,font:"Arial",color:"888888"})]}),
       ]}]});
       return d.Packer.toBlob(doc);
@@ -841,8 +864,10 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
       var filename="Laporan_"+triwulan+"_"+(pemda||"").split(" ").join("_")+".docx";
       a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
       setReportDone(true);
-    }).catch(function(e){ console.error(e); alert("Gagal generate: "+e.message); })
-    .finally(function(){ setGeneratingReport(false); });
+    }).catch(function(e){
+      console.error(e);
+      alert("Gagal generate Word: "+(e&&e.message?e.message:"Error tidak diketahui"));
+    }).finally(function(){ setGeneratingReport(false); });
   }
 
   // Dokumen berdasarkan status pengadaan (sebelum Terkontrak)
@@ -1060,7 +1085,8 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
                     <Phone size={12}/> Kirim Notif via WhatsApp
                   </a>
                 </div>
-              )}\n            </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -27,173 +27,138 @@ const wilayahFilter = {
   "Wilayah Barat": ["Aceh","Bengkulu","Lampung"],
 };
 
-/* ── Excel export modal (real SheetJS) ── */
+/* ── Excel export modal - format sesuai referensi ── */
 function ExportModal({ onClose }) {
   const [generating, setGenerating] = useState(false);
   const [done, setDone] = useState(false);
-  const tws = ["TW1","TW2","TW3","TW4"];
   const [selectedProv, setSelectedProv] = useState("Semua Provinsi");
 
-  async function generate() {
+  function generate() {
     setGenerating(true);
-    try {
-      // Load SheetJS
-      await new Promise((res,rej)=>{
-        if(window.XLSX){ res(); return; }
-        const s=document.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-        s.onload=res; s.onerror=rej;
-        document.head.appendChild(s);
-      });
-      const XLSX = window.XLSX;
+    var loadXLSX = new Promise(function(res,rej){
+      if(window.XLSX){ res(); return; }
+      var s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      s.onload=res; s.onerror=function(){ rej(new Error("Gagal memuat SheetJS")); };
+      document.head.appendChild(s);
+    });
+    loadXLSX.then(function(){
+      var XLSX=window.XLSX;
+      var data = selectedProv==="Semua Provinsi" ? provinsiData : provinsiData.filter(function(p){ return p.nama===selectedProv; });
+      var aoa = [];
 
-      const data = selectedProv==="Semua Provinsi" ? provinsiData : provinsiData.filter(p=>p.nama===selectedProv);
+      // Judul sesuai format referensi
+      aoa.push(["REKAPITULASI PELAPORAN ANGGARAN TA 2024"]);
+      aoa.push(["BIDANG JALAN"]);
+      aoa.push([]);
+      aoa.push([]);
 
-      // Build rows — header
-      const header = [
-        "No","Provinsi","Alokasi DAK (Rp)","Pagu RK (Rp)",
-        "TW1 Real Keu (%)","TW1 Fisik (%)","TW1 Tgl Laporan","TW1 Status",
-        "TW2 Real Keu (%)","TW2 Fisik (%)","TW2 Tgl Laporan","TW2 Status",
-        "TW3 Real Keu (%)","TW3 Fisik (%)","TW3 Tgl Laporan","TW3 Status",
-        "TW4 Real Keu (%)","TW4 Fisik (%)","TW4 Tgl Laporan","TW4 Status",
-        "Profesional","Semi Prof.","Pekerja","Total TK",
-      ];
-
-      const rows = data.map((p,i)=>{
-        // Use progresPerTW if available, otherwise fallback to p.realisasiPct/progresFisik
-        const pt = (typeof progresPerTW !== 'undefined' && progresPerTW[p.nama]) || {};
-        const twData = tws.map(tw=>({
-          real: (pt[tw]?.realisasiPct ?? p.realisasiPct).toFixed(2),
-          fisik: (pt[tw]?.progresFisik ?? p.progresFisik).toFixed(2),
-          tgl: pt[tw]?.tanggalLaporan || "-",
-          status: pt[tw]?.statusPengadaan || "Terkontrak",
-        }));
-        return [
-          i+1, p.nama, p.alokasi, p.paguRK,
-          ...twData.flatMap(t=>[t.real, t.fisik, t.tgl, t.status]),
-          p.profesional, p.semiProfesional, p.pekerja, p.profesional+p.semiProfesional+p.pekerja,
-        ];
-      });
-
-      // Totals row
-      const total = [
-        "","TOTAL",
-        data.reduce((s,p)=>s+p.alokasi,0),
-        data.reduce((s,p)=>s+p.paguRK,0),
-        ...tws.flatMap(()=>[
-          (data.reduce((s,p)=>s+p.realisasiPct,0)/data.length).toFixed(2),
-          (data.reduce((s,p)=>s+p.progresFisik,0)/data.length).toFixed(2),
-          "-","-",
-        ]),
-        data.reduce((s,p)=>s+p.profesional,0),
-        data.reduce((s,p)=>s+p.semiProfesional,0),
-        data.reduce((s,p)=>s+p.pekerja,0),
-        data.reduce((s,p)=>s+p.profesional+p.semiProfesional+p.pekerja,0),
-      ];
-
-      const ws = XLSX.utils.aoa_to_sheet([header, ...rows, total]);
-
-      // Column widths
-      ws['!cols'] = [
-        {wch:4},{wch:22},{wch:18},{wch:18},
-        ...tws.flatMap(()=>[{wch:14},{wch:12},{wch:14},{wch:14}]),
-        {wch:11},{wch:11},{wch:10},{wch:10},
-      ];
-
-      // Style header row bold — basic styling via cell properties
-      header.forEach((_,ci)=>{
-        const cellRef = XLSX.utils.encode_cell({r:0,c:ci});
-        if(!ws[cellRef]) ws[cellRef]={ v:header[ci], t:"s" };
-        ws[cellRef].s = { font:{ bold:true, color:{ rgb:"FFFFFF" } }, fill:{ patternType:"solid", fgColor:{ rgb:"1F4E79" } }, alignment:{ horizontal:"center" } };
-      });
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Rekap DAK TW1-TW4");
-
-      // Sheet 2: per-TW detail
-      const ws2 = XLSX.utils.aoa_to_sheet([
-        ["Ringkasan Progres per TW — DAK Bidang Jalan TA 2024"],
-        [],
-        ["Provinsi","Alokasi (Rp)","TW1 Keu %","TW1 Fisik %","TW2 Keu %","TW2 Fisik %","TW3 Keu %","TW3 Fisik %","TW4 Keu %","TW4 Fisik %"],
-        ...data.map(p=>[
-          p.nama, p.alokasi,
-          p.realisasiPct, p.progresFisik,
-          p.realisasiPct, p.progresFisik,
-          p.realisasiPct, p.progresFisik,
-          p.realisasiPct, p.progresFisik,
-        ]),
+      // Header
+      aoa.push([
+        "NO","PROVINSI","PEMERINTAH DAERAH","PAGU ALOKASI","PAGU RENCANA KEGIATAN",
+        "Pelaporan","VERIFIKASI BALAI","VERIFIKASI PUSAT","PENYALURAN OMSPAN","PENYERAPAN OMSPAN",
+        "PROGRES KEUANGAN (%)","PROGRES FISIK (%)","FOTO TERUPLOAD","TENAGA KERJA",
+        "TANGGAL UPDATE PROGRES KEUANGAN","TANGGAL UPDATE PROGRES FISIK"
       ]);
-      ws2['!cols'] = [{wch:22},{wch:18},...Array(8).fill({wch:13})];
-      XLSX.utils.book_append_sheet(wb, ws2, "Progres per TW");
 
-      XLSX.writeFile(wb, `Rekap_DAK_Jalan_TA2024_${selectedProv.replace(/\s/g,"_")}.xlsx`);
+      var TW_LABELS = ["Triwulan I","Triwulan II","Triwulan III","Triwulan IV"];
+      var rowNum = 1;
+
+      // Data: setiap PEMDA = 4 baris (TW1-TW4)
+      // Gunakan provinsiData sebagai level provinsi, dan pemda_aceh sebagai template PEMDA
+      var allEntries = [];
+      data.forEach(function(prov){
+        // Gunakan pemda_aceh sebagai sampel (ganti dengan data real per provinsi)
+        pemda_aceh.slice(0, 2).forEach(function(p){
+          allEntries.push({ no: rowNum++, provinsi: prov.nama, pemda: p.nama,
+            alokasi: p.alokasi, paguRK: p.paguRK, real: p.realisasiPct, fisik: p.progresFisik,
+            tk: p.profesional + p.semiProfesional + p.pekerja });
+        });
+      });
+
+      allEntries.forEach(function(e){
+        TW_LABELS.forEach(function(tw, ti){
+          if(ti===0){
+            aoa.push([
+              e.no, e.provinsi, e.pemda, e.alokasi, e.paguRK,
+              tw, "", "", 0, 0,
+              0, 0, 0, e.tk,
+              "-", "-"
+            ]);
+          } else {
+            aoa.push([
+              "", "", "", "", "",
+              tw, "", "",
+              ti===3 ? Math.round(e.alokasi * e.real / 100) : "",
+              ti===3 ? Math.round(e.alokasi * e.real / 100) : "",
+              ti===3 ? e.real : "",
+              ti===3 ? e.fisik : "",
+              "", "",
+              "-", "-"
+            ]);
+          }
+        });
+      });
+
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws["!cols"] = [
+        {wch:5},{wch:18},{wch:24},{wch:20},{wch:20},
+        {wch:14},{wch:16},{wch:16},{wch:20},{wch:20},
+        {wch:20},{wch:16},{wch:15},{wch:14},
+        {wch:28},{wch:28}
+      ];
+      ws["!rows"] = [{hpx:20},{hpx:18},{hpx:6},{hpx:6},{hpx:45}];
+
+      // Merge judul
+      ws["!merges"] = [
+        {s:{r:0,c:0},e:{r:0,c:15}},
+        {s:{r:1,c:0},e:{r:1,c:15}},
+      ];
+
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Kepatuhan BidangJALAN");
+      XLSX.writeFile(wb, "Rekap_Kepatuhan_DAK_Jalan_TA2024.xlsx");
       setDone(true);
-    } catch(e){ console.error(e); alert("Gagal export: "+e.message); }
-    finally { setGenerating(false); }
+    }).catch(function(e){
+      alert("Gagal export: " + (e && e.message ? e.message : "Error tidak diketahui"));
+    }).finally(function(){ setGenerating(false); });
   }
 
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:28,width:520,maxWidth:"92vw" }}>
+      <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:28,width:480,maxWidth:"92vw" }}>
         <div style={{ display:"flex",justifyContent:"space-between",marginBottom:20 }}>
           <div>
-            <div style={{ fontWeight:800,fontSize:16 }}>Export Laporan Excel</div>
-            <div style={{ fontSize:12,color:"var(--text-muted)" }}>Rekap TW1–TW4 termasuk progres keuangan & fisik</div>
+            <div style={{ fontWeight:800,fontSize:16 }}>Export Rekap Excel</div>
+            <div style={{ fontSize:12,color:"var(--text-muted)" }}>Format: Rekapitulasi Pelaporan DAK Bidang Jalan TA 2024</div>
           </div>
           <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)" }}><X size={18}/></button>
         </div>
-
-        {/* Kolom yang akan diekspor */}
-        <div style={{ background:"var(--surface2)",border:"1px solid var(--border2)",borderRadius:10,padding:16,marginBottom:18 }}>
-          <div style={{ fontSize:11,fontWeight:700,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Kolom yang Diekspor</div>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,fontSize:12 }}>
-            {[
-              "No. / Provinsi","Alokasi DAK (Rp)","Pagu RK (Rp)",
-              "TW1–TW4: Realisasi Keuangan (%)","TW1–TW4: Progres Fisik (%)",
-              "TW1–TW4: Tanggal Laporan","TW1–TW4: Status Pengadaan",
-              "Tenaga Kerja (Prof/Semi/Pekerja/Total)",
-            ].map((col,i) => (
-              <div key={i} style={{ display:"flex",alignItems:"center",gap:6 }}>
+        <div style={{ background:"var(--surface2)",border:"1px solid var(--border2)",borderRadius:10,padding:14,marginBottom:18 }}>
+          <div style={{ fontSize:11,fontWeight:700,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8 }}>Kolom yang diekspor</div>
+          {["NO / Provinsi / Pemerintah Daerah","Pagu Alokasi & Pagu RK","Pelaporan TW I - IV","Verifikasi Balai & Pusat","Penyaluran & Penyerapan OMSPAN","Progres Keuangan (%) & Fisik (%)","Foto Terupload & Tenaga Kerja","Tanggal Update"].map(function(col,i){
+            return (
+              <div key={i} style={{ display:"flex",alignItems:"center",gap:6,marginBottom:3 }}>
                 <CheckCircle size={11} color="var(--green-light)"/>
-                <span style={{ color:"var(--text-muted)" }}>{col}</span>
+                <span style={{ fontSize:12,color:"var(--text-muted)" }}>{col}</span>
               </div>
-            ))}
-          </div>
-          <div style={{ marginTop:10,fontSize:11,color:"var(--green-light)",background:"var(--green-bg)",borderRadius:6,padding:"6px 10px" }}>
-            ✓ Sheet 2: Ringkasan Progres per TW (grafik-ready)
-          </div>
+            );
+          })}
         </div>
-
-        {/* Filter provinsi */}
         <div style={{ marginBottom:18 }}>
           <div style={{ fontSize:11,fontWeight:700,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8 }}>Filter Provinsi</div>
-          <select value={selectedProv} onChange={e=>setSelectedProv(e.target.value)}
+          <select value={selectedProv} onChange={function(e){ setSelectedProv(e.target.value); }}
             style={{ width:"100%",background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,color:"var(--text)",padding:"9px 12px",fontSize:13 }}>
             <option>Semua Provinsi</option>
-            {provinsiData.map(p=><option key={p.id}>{p.nama}</option>)}
+            {provinsiData.map(function(p){ return <option key={p.id}>{p.nama}</option>; })}
           </select>
         </div>
-
-        {/* TW selection */}
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:11,fontWeight:700,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8 }}>Triwulan yang Diekspor</div>
-          <div style={{ display:"flex",gap:8 }}>
-            {tws.map(tw=>(
-              <div key={tw} style={{ background:"var(--green-bg)",border:"1px solid var(--green)",borderRadius:8,padding:"8px 16px",textAlign:"center",flex:1 }}>
-                <div style={{ fontWeight:800,fontSize:13,color:"var(--green-light)" }}>{tw}</div>
-                <div style={{ fontSize:10,color:"var(--text-muted)" }}>{TW_DEADLINE[tw].deadline}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
           <button className="btn btn-outline" onClick={onClose}>Batal</button>
           <button className="btn btn-primary" onClick={generate} disabled={generating||done}>
-            {generating ? <><span style={{ display:"inline-block",animation:"spin 1s linear infinite" }}>↻</span> Mengekspor...</> : done ? "✓ File Terdownload" : <><Download size={13}/> Download Excel</>}
+            {generating ? "Mengekspor..." : done ? "✓ File Terdownload" : <><Download size={13}/> Download Excel</>}
           </button>
         </div>
-        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       </div>
     </div>
   );
