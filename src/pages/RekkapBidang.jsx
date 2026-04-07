@@ -35,15 +35,26 @@ function ExportModal({ onClose }) {
 
   function generate() {
     setGenerating(true);
-    var loadXLSX = new Promise(function(res,rej){
-      if(window.XLSX){ res(); return; }
-      var s=document.createElement("script");
-      s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-      s.onload=res; s.onerror=function(){ rej(new Error("Gagal memuat SheetJS")); };
-      document.head.appendChild(s);
-    });
-    loadXLSX.then(function(){
+    // Load SheetJS from multiple CDN fallbacks
+    var cdns = [
+      "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+      "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
+      "https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"
+    ];
+    function tryLoad(idx) {
+      if(window.XLSX) return Promise.resolve();
+      if(idx >= cdns.length) return Promise.reject(new Error("Semua CDN gagal dimuat"));
+      return new Promise(function(res,rej){
+        var s=document.createElement("script");
+        s.src=cdns[idx];
+        s.onload=res;
+        s.onerror=function(){ tryLoad(idx+1).then(res).catch(rej); };
+        document.head.appendChild(s);
+      });
+    }
+    tryLoad(0).then(function(){
       var XLSX=window.XLSX;
+      if(!XLSX){ throw new Error("SheetJS tidak tersedia"); }
       var data = selectedProv==="Semua Provinsi" ? provinsiData : provinsiData.filter(function(p){ return p.nama===selectedProv; });
       var aoa = [];
 

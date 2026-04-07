@@ -116,40 +116,78 @@ export function CrosscheckBtn({ uploaded, verifiedPFID, isPemda, catatan, onVeri
 /* ─── Doc Row ─── */
 export function DocRow({ doc, state, isPemda, onUpload, onVerify, onReject, locked }) {
   const [modal, setModal] = useState(false);
+  const [showCatatan, setShowCatatan] = useState(false);
+  const [catatanInput, setCatatanInput] = useState("");
   const st = state || {};
+
+  function handleSaveCatatan() {
+    if(onReject) onReject(catatanInput);
+    setShowCatatan(false);
+  }
+
   return (
-    <div className="checklist-item" style={{ opacity: locked ? 0.45 : 1, pointerEvents: locked ? "none" : "auto" }}>
-      <div className={`check-icon ${st.verifiedPFID?"verified":st.uploaded?"done":"empty"}`}>
-        {(st.verifiedPFID||st.uploaded) && <CheckCircle size={12}/>}
-      </div>
-      <div className="check-info">
-        <div className="check-label">
-          {doc.label}
-          {doc.required && <span className="check-required"> *wajib</span>}
-          {locked && <Lock size={11} style={{ marginLeft:6,color:S.dim }}/>}
+    <div className="checklist-item" style={{ opacity:locked?0.45:1, pointerEvents:locked?"none":"auto", flexDirection:"column", alignItems:"stretch" }}>
+      <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+        <div className={`check-icon ${st.verifiedPFID?"verified":st.uploaded?"done":"empty"}`} style={{ marginTop:2, flexShrink:0 }}>
+          {(st.verifiedPFID||st.uploaded) && <CheckCircle size={12}/>}
         </div>
-        <div className="check-meta" style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:3 }}>
-          {st.verifiedPFID && <span className="pfid-stamp pfid-verified">✓ Diverifikasi PFID {st.tanggalVerif}</span>}
-          {!st.verifiedPFID&&st.uploaded&&!st.catatan && <span className="pfid-stamp pfid-pending">⏳ Menunggu verifikasi PFID</span>}
-          {!st.verifiedPFID&&st.uploaded&&st.catatan && <span className="pfid-stamp" style={{ background:"var(--yellow-bg)",color:S.yellow,border:"1px solid var(--yellow)",borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:700 }}>⚠ Perlu perbaikan</span>}
-          {!st.uploaded && <span className="pfid-stamp pfid-none">Belum diupload</span>}
-          {doc.keterangan && <span style={{ fontSize:11,color:S.dim }}>· {doc.keterangan}</span>}
-        </div>
-        {st.catatan && (
-          <div style={{ fontSize:11,color:S.yellow,background:"var(--yellow-bg)",borderRadius:5,padding:"5px 9px",marginTop:5,border:"1px solid rgba(210,153,34,0.3)" }}>
-            <strong>Catatan PFID:</strong> {st.catatan}
+        <div className="check-info" style={{ flex:1 }}>
+          <div className="check-label">
+            {doc.label}
+            {doc.required && <span className="check-required"> *wajib</span>}
+            {locked && <Lock size={11} style={{ marginLeft:6,color:S.dim }}/>}
           </div>
-        )}
+          <div className="check-meta" style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:3 }}>
+            {st.verifiedPFID && <span className="pfid-stamp pfid-verified">✓ Diverifikasi PFID {st.tanggalVerif}</span>}
+            {!st.verifiedPFID&&st.uploaded&&!st.catatan && <span className="pfid-stamp pfid-pending">⏳ Menunggu verifikasi PFID</span>}
+            {!st.verifiedPFID&&st.uploaded&&st.catatan && <span className="pfid-stamp" style={{ background:"var(--yellow-bg)",color:S.yellow,border:"1px solid var(--yellow)",borderRadius:99,padding:"2px 8px",fontSize:10,fontWeight:700 }}>⚠ Perlu perbaikan</span>}
+            {!st.uploaded && <span className="pfid-stamp pfid-none">Belum diupload</span>}
+            {doc.keterangan && <span style={{ fontSize:11,color:S.dim }}>· {doc.keterangan}</span>}
+          </div>
+          {st.catatan && (
+            <div style={{ fontSize:11,color:S.yellow,background:"var(--yellow-bg)",borderRadius:5,padding:"5px 9px",marginTop:5,border:"1px solid rgba(210,153,34,0.3)" }}>
+              <strong>Catatan PFID:</strong> {st.catatan}
+            </div>
+          )}
+        </div>
+        <div className="check-actions" style={{ flexShrink:0 }}>
+          {st.uploaded && <button className="btn btn-outline btn-xs"><Eye size={11}/> Lihat</button>}
+          {isPemda&&!st.uploaded && <button className="btn btn-primary btn-xs" onClick={()=>setModal(true)}><Upload size={11}/> Upload</button>}
+          {isPemda&&st.uploaded&&!st.verifiedPFID && <span style={{ fontSize:10,color:S.muted }}>Menunggu PFID</span>}
+          {!isPemda&&st.uploaded && (
+            <div style={{ display:"flex",gap:4,alignItems:"center" }}>
+              <CrosscheckBtn uploaded verifiedPFID={st.verifiedPFID} isPemda={isPemda} catatan={st.catatan}
+                onVerify={onVerify} onReject={onReject} small/>
+              <button
+                className="btn btn-outline btn-xs"
+                title="Tambah catatan verifikator"
+                onClick={()=>{ setCatatanInput(st.catatan||""); setShowCatatan(v=>!v); }}
+                style={{ color: st.catatan ? S.yellow : S.muted }}>
+                ✏ Catatan
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="check-actions">
-        {st.uploaded && <button className="btn btn-outline btn-xs"><Eye size={11}/> Lihat</button>}
-        {isPemda&&!st.uploaded && <button className="btn btn-primary btn-xs" onClick={()=>setModal(true)}><Upload size={11}/> Upload</button>}
-        {isPemda&&st.uploaded&&!st.verifiedPFID && <span style={{ fontSize:10,color:S.muted }}>Menunggu PFID</span>}
-        {!isPemda&&st.uploaded && (
-          <CrosscheckBtn uploaded verifiedPFID={st.verifiedPFID} isPemda={isPemda} catatan={st.catatan}
-            onVerify={onVerify} onReject={onReject} small/>
-        )}
-      </div>
+      {/* Inline catatan input untuk PFID/Pusat */}
+      {!isPemda && showCatatan && (
+        <div style={{ marginTop:8, marginLeft:22, background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:8, padding:"10px 12px" }}>
+          <div style={{ fontSize:11, fontWeight:700, color:S.muted, marginBottom:6, textTransform:"uppercase", letterSpacing:"0.04em" }}>
+            Catatan Verifikator (akan muncul di laporan Word)
+          </div>
+          <textarea
+            value={catatanInput}
+            onChange={e=>setCatatanInput(e.target.value)}
+            placeholder="Tuliskan catatan ketidaksesuaian atau keterangan tambahan..."
+            style={{ width:"100%", background:"var(--surface)", border:`1px solid ${S.border}`, borderRadius:6, color:S.text, fontSize:12, padding:"7px 10px", resize:"vertical", minHeight:60, boxSizing:"border-box" }}
+          />
+          <div style={{ display:"flex",gap:6,marginTop:8,justifyContent:"flex-end" }}>
+            <button className="btn btn-outline btn-xs" onClick={()=>setShowCatatan(false)}>Batal</button>
+            {catatanInput && <button className="btn btn-danger btn-xs" onClick={()=>{ if(onReject) onReject(""); setCatatanInput(""); setShowCatatan(false); }}>Hapus Catatan</button>}
+            <button className="btn btn-primary btn-xs" onClick={handleSaveCatatan}>Simpan Catatan</button>
+          </div>
+        </div>
+      )}
       {modal && <UploadModal label={doc.label} onClose={()=>setModal(false)} onConfirm={()=>{ onUpload(); setModal(false); }}/>}
     </div>
   );

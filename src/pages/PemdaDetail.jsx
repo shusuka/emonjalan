@@ -797,80 +797,72 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
 
   function handleGenerateWord() {
     setGeneratingReport(true);
-    var loadDocx = new Promise(function(res,rej){
-      if(window.docx && window.docx.Packer){ res(); return; }
-      var s=document.createElement('script');
-      s.src='https://unpkg.com/docx@7.8.2/build/index.umd.js';
-      s.onload=function(){ res(); };
-      s.onerror=function(){ rej(new Error("Gagal memuat library docx")); };
-      document.head.appendChild(s);
-    });
-    loadDocx.then(function(){
-      var d=window.docx;
-      if(!d||!d.Packer) throw new Error("Library docx tidak tersedia");
-      var border={style:"single",size:1,color:"CCCCCC"};
-      var borders={top:border,bottom:border,left:border,right:border};
-      function hCell(text,w){
-        return new d.TableCell({ borders:borders, width:w?{size:w,type:"pct"}:undefined,
-          shading:{fill:"1F4E79",type:"clear"}, verticalAlign:"center",
-          margins:{top:80,bottom:80,left:120,right:120},
-          children:[new d.Paragraph({alignment:"center",children:[new d.TextRun({text:text,bold:true,color:"FFFFFF",size:18,font:"Arial"})]})] });
-      }
-      function dCell(text,opts){
-        opts=opts||{};
-        return new d.TableCell({ borders:borders, width:opts.w?{size:opts.w,type:"pct"}:undefined,
-          shading:opts.fill?{fill:opts.fill,type:"clear"}:undefined, verticalAlign:"center",
-          margins:{top:60,bottom:60,left:120,right:120},
-          children:[new d.Paragraph({alignment:opts.center?"center":"left",children:[new d.TextRun({text:String(text||"-"),size:18,font:"Arial",bold:opts.bold||false})]})] });
-      }
-      var snapDocs=allDocsForReport.slice();
-      var snapNotOk=notOk.slice();
-      var snapDocState=docState;
-      var doc=new d.Document({ sections:[{ children:[
-        new d.Paragraph({heading:"Heading1",children:[new d.TextRun({text:"LAPORAN VERIFIKASI PFID",bold:true,size:28,font:"Arial",color:"1F4E79"})]}),
-        new d.Paragraph({children:[new d.TextRun({text:"DAK Bidang Jalan TA 2024 - "+triwulan,size:22,font:"Arial",color:"444444"})]}),
-        new d.Paragraph({children:[new d.TextRun({text:" "})]}),
-        new d.Paragraph({children:[new d.TextRun({text:"PEMDA: "+(pemda||"-"),bold:true,size:22,font:"Arial"})]}),
-        new d.Paragraph({children:[new d.TextRun({text:"OPD: "+(pemda_info&&pemda_info.namaOPD||"-")+"  |  Kontak: +"+(pemda_info&&pemda_info.noHPOPD||"-"),size:18,font:"Arial",color:"666666"})]}),
-        new d.Paragraph({children:[new d.TextRun({text:" "})]}),
-        new d.Paragraph({heading:"Heading2",children:[new d.TextRun({text:"Ringkasan Kelengkapan Dokumen",bold:true,size:22,font:"Arial"})]}),
-        new d.Table({ width:{size:100,type:"pct"}, rows:[
-          new d.TableRow({children:[hCell("No",8),hCell("Dokumen",50),hCell("Status",20),hCell("Keterangan",22)]}),
-          ...snapDocs.map(function(doc,i){
-            var st=snapDocState[doc.id]||{};
-            return new d.TableRow({children:[
-              dCell(String(i+1),{w:8,center:true}),
-              dCell(doc.label,{w:50}),
-              dCell(st.verifiedPFID?"Terverifikasi":st.uploaded?"Diupload":"Belum Upload",{w:20,center:true,fill:st.verifiedPFID?"E2F0D9":st.uploaded?"FFF2CC":"FFE7E7"}),
-              dCell(st.catatan||"-",{w:22})
-            ]});
-          }),
-        ]}),
-        new d.Paragraph({children:[new d.TextRun({text:" "})]}),
-        new d.Paragraph({heading:"Heading2",children:[new d.TextRun({text:"Dokumen Belum Sesuai",bold:true,size:22,font:"Arial",color:"C00000"})]}),
-        ...(snapNotOk.length===0
-          ? [new d.Paragraph({children:[new d.TextRun({text:"Semua dokumen sudah sesuai.",size:18,font:"Arial",color:"375623"})]})]
-          : snapNotOk.map(function(doc){
-              return new d.Paragraph({bullet:{level:0},children:[new d.TextRun({text:doc.label+(snapDocState[doc.id]&&snapDocState[doc.id].catatan?" - "+snapDocState[doc.id].catatan:""),size:18,font:"Arial"})]});
-            })
-        ),
-        new d.Paragraph({children:[new d.TextRun({text:" "})]}),
-        new d.Paragraph({children:[new d.TextRun({text:"Diterbitkan oleh PFID - "+new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"}),size:16,font:"Arial",color:"888888"})]}),
-      ]}]});
-      return d.Packer.toBlob(doc);
-    }).then(function(blob){
-      var url=URL.createObjectURL(blob);
-      var a=document.createElement("a");
-      var filename="Laporan_"+triwulan+"_"+(pemda||"").split(" ").join("_")+".docx";
-      a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
+    try {
+      // Generate HTML-based Word document (no CDN required)
+      var snDocs = allDocsForReport.slice();
+      var snNotOk = notOk.slice();
+      var snState = docState;
+
+      var tableRows = snDocs.map(function(doc, i) {
+        var st = snState[doc.id] || {};
+        var statusText = st.verifiedPFID ? "Terverifikasi" : st.uploaded ? "Diupload" : "Belum Upload";
+        var statusColor = st.verifiedPFID ? "#c6efce" : st.uploaded ? "#ffeb9c" : "#ffc7ce";
+        var catatanText = st.catatan || "-";
+        return "<tr><td style='border:1px solid #ccc;padding:6px;text-align:center'>"+(i+1)+"</td>"
+          + "<td style='border:1px solid #ccc;padding:6px'>"+doc.label+(doc.required?" <b style='color:red'>*wajib</b>":"")+"</td>"
+          + "<td style='border:1px solid #ccc;padding:6px;text-align:center;background:"+statusColor+"'>"+statusText+"</td>"
+          + "<td style='border:1px solid #ccc;padding:6px'>"+catatanText+"</td></tr>";
+      }).join("");
+
+      var notOkList = snNotOk.length === 0
+        ? "<p style='color:#375623'>&#x2713; Semua dokumen sudah sesuai.</p>"
+        : "<ul>"+snNotOk.map(function(doc) {
+            var st = snState[doc.id] || {};
+            return "<li><strong>"+doc.label+"</strong>"+(st.catatan ? " &mdash; <em>"+st.catatan+"</em>" : "")+((!st.uploaded)?" (Belum diupload)":"")+"</li>";
+          }).join("")+"</ul>";
+
+      var tanggal = new Date().toLocaleDateString("id-ID", {day:"2-digit",month:"long",year:"numeric"});
+
+      var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+        + "<style>body{font-family:Arial,sans-serif;font-size:11pt;margin:2cm}"
+        + "h1{color:#1F4E79;font-size:16pt}h2{color:#2E4057;font-size:13pt;margin-top:18pt}"
+        + "table{border-collapse:collapse;width:100%}th{background:#1F4E79;color:white;padding:7px;font-size:10pt}"
+        + "td{font-size:10pt}.footer{font-size:9pt;color:#888;margin-top:24pt}</style>"
+        + "</head><body>"
+        + "<h1>LAPORAN VERIFIKASI PFID</h1>"
+        + "<p style='color:#444;font-size:12pt'>DAK Bidang Jalan TA 2024 &mdash; "+triwulan+"</p><hr>"
+        + "<p><strong>PEMDA:</strong> "+(pemda||"-")+"</p>"
+        + "<p><strong>OPD:</strong> "+(pemda_info&&pemda_info.namaOPD||"-")+"&nbsp;&nbsp;|&nbsp;&nbsp;"
+        + "<strong>Kontak:</strong> +"+(pemda_info&&pemda_info.noHPOPD||"-")+"</p>"
+        + "<h2>Ringkasan Kelengkapan Dokumen</h2>"
+        + "<table><thead><tr>"
+        + "<th style='width:5%'>No</th><th style='width:45%'>Dokumen</th>"
+        + "<th style='width:18%'>Status</th><th style='width:32%'>Catatan Verifikator</th>"
+        + "</tr></thead><tbody>"+tableRows+"</tbody></table>"
+        + "<h2 style='color:#C00000'>Dokumen Belum Sesuai</h2>"
+        + notOkList
+        + "<p class='footer'>Diterbitkan oleh PFID &mdash; "+tanggal+"</p>"
+        + "</body></html>";
+
+      var blob = new Blob([html], { type: "application/msword" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "Laporan_"+triwulan+"_"+(pemda||"").split(" ").join("_")+".doc";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       setReportDone(true);
-    }).catch(function(e){
+    } catch(e) {
       console.error(e);
-      alert("Gagal generate Word: "+(e&&e.message?e.message:"Error tidak diketahui"));
-    }).finally(function(){ setGeneratingReport(false); });
+      alert("Gagal generate Word: " + (e && e.message ? e.message : "Error tidak diketahui"));
+    } finally {
+      setGeneratingReport(false);
+    }
   }
 
-  // Dokumen berdasarkan status pengadaan (sebelum Terkontrak)
+    // Dokumen berdasarkan status pengadaan (sebelum Terkontrak)
   if (!terkontrak) {
     const statusPengadaanLocal = statusPengadaan || "Persiapan";
     const isPersiapan = statusPengadaanLocal === "Persiapan";
