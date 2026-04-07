@@ -630,6 +630,9 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
 
   const displayFisik = currentIs100 ? 100 : (parseFloat(inputFisikPct) || kegiatan.fisik);
   const displayReal = parseFloat(inputRealisasiPct) || kegiatan.realisasiPct;
+  // Adendum: cek apakah ada dokumen adendum yang diupload
+  const hasAdendum = !!(docState["adendum_tw1"] || docState["adendum_tw2"] ||
+                        docState["adendum_tw3"] || docState["adendum_tw4"]);
 
   return (
     <div>
@@ -880,11 +883,11 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
           </table>
         </div>
         {/* Keterangan kolom foto */}
-        <div style={{ display:"flex",gap:20,padding:"8px 14px",borderTop:`1px solid ${S.border2}`,background:S.surface2,fontSize:11,color:S.muted }}>
-          <span>📷 <strong style={{ color:S.text }}>Kolom 1</strong> = Foto 0%</span>
-          <span>📷 <strong style={{ color:S.text }}>Kolom 2</strong> = Foto 50%</span>
-          <span>📷 <strong style={{ color:S.text }}>Kolom 3</strong> = Foto 100%</span>
-          <span style={{ marginLeft:"auto",fontStyle:"italic" }}>Klik ikon untuk upload/lihat foto</span>
+        <div style={{ display:"flex",gap:16,padding:"8px 14px",borderTop:`1px solid ${S.border2}`,background:S.surface2,fontSize:11,color:S.muted,flexWrap:"wrap" }}>
+          <span>📷 <strong style={{ color:S.text }}>Foto 0%</strong> = Progres awal</span>
+          <span>📷 <strong style={{ color:S.text }}>Foto 50%</strong> = Progres tengah</span>
+          <span>📷 <strong style={{ color:S.text }}>Foto 100%</strong> = Progres selesai</span>
+          <span style={{ marginLeft:"auto",fontStyle:"italic" }}>Mode PEMDA: klik <Upload size={9}/> untuk upload · Mode Pusat: klik <Eye size={9}/> untuk lihat</span>
         </div>
       </div>
 
