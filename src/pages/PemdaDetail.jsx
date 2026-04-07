@@ -58,28 +58,55 @@ function VideoLinkModal({ existing, onClose, onConfirm }) {
    - Setelah semua dokumen upload baru bisa Save
 ════════════════════════════════════════════ */
 function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
-  const kontrak = sampleKontrak["Provinsi Aceh"];
+  const kontrakDefault = sampleKontrak["Provinsi Aceh"];
   const [selectedRuas, setSelectedRuas] = useState("");
-  const [savedRuas, setSavedRuas] = useState({}); // { ruasId: true } = sudah disave
+  const [savedRuas, setSavedRuas] = useState({});
   const [showSaveConfirm, setShowSaveConfirm] = useState(null);
+
+  // Form data penyedia editable
+  const [formKontrak, setFormKontrak] = useState({
+    namaPenyedia: kontrakDefault.namaPenyedia, alamatPenyedia: kontrakDefault.alamatPenyedia,
+    nomorKontrak: kontrakDefault.nomorKontrak, tanggalKontrak: kontrakDefault.tanggalKontrak,
+    nilaiKontrak: String(kontrakDefault.nilaiKontrak), tanggalSPMK: kontrakDefault.tanggalSPMK,
+    masaPelaksanaan: String(kontrakDefault.masaPelaksanaan), masaPemeliharaan: String(kontrakDefault.masaPemeliharaan),
+  });
+  const [editingKontrak, setEditingKontrak] = useState(false);
+
+  // Addendum
+  const [addendumList, setAddendumList] = useState([]);
+  const [showAddAddendum, setShowAddAddendum] = useState(false);
+  const [addendumForm, setAddendumForm] = useState({
+    tanggalKontrak:"", nomorKontrak:"", nilaiKontrak:"",
+    tanggalSPMK:"", masaPelaksanaan:"", masaPemeliharaan:"", alasanAddendum:""
+  });
 
   const ruas = sampleRuas;
   const current = ruas.find(r => r.id === selectedRuas);
 
   function getRuasDocKey(ruasId, docId) { return `kontrak_${ruasId}_${docId}`; }
-
   function allDocsUploaded(ruasId) {
     return DOCS_KONTRAK_RUAS.filter(d => d.required).every(d => {
       const k = getRuasDocKey(ruasId, d.id);
       return docState[k]?.uploaded;
     });
   }
-
   function handleSave(ruasId) {
     setSavedRuas(s => ({ ...s, [ruasId]: true }));
     setShowSaveConfirm(ruasId);
     setTimeout(() => setShowSaveConfirm(null), 2500);
   }
+  function handleSaveAddendum() {
+    if(!addendumForm.tanggalKontrak||!addendumForm.nilaiKontrak) return;
+    setAddendumList(l=>[...l,{ ...addendumForm, no: l.length+1 }]);
+    setAddendumForm({ tanggalKontrak:"",nomorKontrak:"",nilaiKontrak:"",tanggalSPMK:"",masaPelaksanaan:"",masaPemeliharaan:"",alasanAddendum:"" });
+    setShowAddAddendum(false);
+  }
+
+  const nilaiKontrakAktif = addendumList.length>0
+    ? parseInt(addendumList[addendumList.length-1].nilaiKontrak)||parseInt(formKontrak.nilaiKontrak)||0
+    : parseInt(formKontrak.nilaiKontrak)||0;
+
+  const inpStyle = { background:S.surface,border:`1px solid ${S.border}`,borderRadius:6,color:S.text,padding:"7px 10px",fontSize:13,width:"100%",boxSizing:"border-box" };
 
   return (
     <div>
@@ -89,158 +116,181 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
         </div>
       )}
 
-      {/* Info kontrak */}
+      {/* ── TABEL PREVIEW PAKET KEGIATAN (sesuai gambar 1) ── */}
+      {terkontrak && (
+        <div className="table-wrap" style={{ marginBottom:20 }}>
+          <div className="table-header">
+            <span className="table-title"><FileText size={14} style={{ color:S.accent }}/> Daftar Paket Kegiatan</span>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table>
+              <thead><tr>
+                <th style={{ width:40 }}>NO.</th>
+                <th>PAKET KEGIATAN</th>
+                <th className="right">PAGU RK</th>
+                <th className="right">NILAI KONTRAK</th>
+                <th>TANGGAL KONTRAK</th>
+                <th className="center">ADDENDUM</th>
+                <th>ALASAN ADDENDUM</th>
+              </tr></thead>
+              <tbody>
+                {ruas.map((r,i)=>(
+                  <tr key={r.id}>
+                    <td className="center">{i+1}</td>
+                    <td style={{ fontSize:12,lineHeight:1.5 }}>{r.kode} - {r.nama}</td>
+                    <td className="right">{formatRupiah(r.paguRK)}</td>
+                    <td className="right">{formatRupiah(nilaiKontrakAktif || r.paguRK)}</td>
+                    <td style={{ fontFamily:"'DM Mono',monospace",fontSize:12 }}>{addendumList.length>0?addendumList[addendumList.length-1].tanggalKontrak:formKontrak.tanggalKontrak}</td>
+                    <td className="center"><span className={`badge ${addendumList.length>0?"badge-yellow":"badge-green"}`}>{addendumList.length}</span></td>
+                    <td style={{ fontSize:12,color:S.muted }}>{addendumList.length>0?addendumList[addendumList.length-1].alasanAddendum:"-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── DATA PENYEDIA & KONTRAK (editable oleh PEMDA) ── */}
       {terkontrak && (
         <div className="detail-card" style={{ marginBottom:20 }}>
           <div className="detail-card-header">
             <span style={{ fontWeight:700,fontSize:13 }}>Data Penyedia &amp; Kontrak</span>
-            <span className="badge badge-green">Terkontrak</span>
+            <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+              <span className="badge badge-green">Terkontrak</span>
+              {isPemda && !editingKontrak && (
+                <button className="btn btn-outline btn-xs" onClick={()=>setEditingKontrak(true)}>
+                  <Edit3 size={11}/> Edit
+                </button>
+              )}
+              {isPemda && editingKontrak && (
+                <>
+                  <button className="btn btn-outline btn-xs" onClick={()=>setEditingKontrak(false)}>Batal</button>
+                  <button className="btn btn-primary btn-xs" onClick={()=>setEditingKontrak(false)}>
+                    <CheckCircle size={11}/> Simpan
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           <div className="detail-card-body">
-            <div className="detail-row">
-              <div className="detail-field"><label>Nama Penyedia</label><value>{kontrak.namaPenyedia}</value></div>
-              <div className="detail-field"><label>Alamat</label><value style={{ fontSize:13,color:S.muted }}>{kontrak.alamatPenyedia}</value></div>
-            </div>
-            <div className="detail-row">
-              <div className="detail-field"><label>Nomor Kontrak</label><value style={{ fontFamily:"'DM Mono',monospace",fontSize:13 }}>{kontrak.nomorKontrak}</value></div>
-              <div className="detail-field"><label>Tanggal Kontrak</label><value>{kontrak.tanggalKontrak}</value></div>
-            </div>
-            <div className="detail-row">
-              <div className="detail-field"><label>Nilai Kontrak (Rp)</label><value style={{ color:S.accent,fontFamily:"'DM Mono',monospace" }}>{formatRupiah(kontrak.nilaiKontrak)}</value></div>
-              <div className="detail-field"><label>Tanggal SPMK</label><value>{kontrak.tanggalSPMK}</value></div>
-            </div>
-            <div className="detail-row">
-              <div className="detail-field"><label>Masa Pelaksanaan</label><value>{kontrak.masaPelaksanaan} hari kalender</value></div>
-              <div className="detail-field"><label>Masa Pemeliharaan</label><value>{kontrak.masaPemeliharaan} hari kalender</value></div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tenaga Kerja dari kontrak */}
-      {terkontrak && (
-        <div className="table-wrap" style={{ marginBottom:20 }}>
-          <div className="table-header">
-            <span className="table-title"><Users size={14} style={{ color:S.accent }}/> Data Tenaga Kerja (dari Kontrak)</span>
-          </div>
-          <table>
-            <thead><tr>
-              <th>KATEGORI</th><th>JABATAN</th><th className="center">JUMLAH</th><th>KUALIFIKASI</th>
-            </tr></thead>
-            <tbody>
-              {kontrak.tenagaKerja.map((t,i) => (
-                <tr key={i}>
-                  <td><span className={`badge ${t.kategori==="Profesional"?"badge-blue":t.kategori==="Semi Profesional"?"badge-purple":"badge-green"}`}>{t.kategori}</span></td>
-                  <td style={{ fontWeight:500 }}>{t.jabatan}</td>
-                  <td className="center" style={{ fontWeight:700,fontSize:16 }}>{t.jumlah}</td>
-                  <td style={{ fontSize:12,color:S.muted }}>{t.ket}</td>
-                </tr>
-              ))}
-              <tr style={{ background:S.surface2 }}>
-                <td colSpan={2} style={{ textAlign:"right",fontWeight:800,fontSize:12 }}>TOTAL</td>
-                <td className="center" style={{ fontWeight:800,fontSize:16,color:S.accent }}>{kontrak.tenagaKerja.reduce((s,t)=>s+t.jumlah,0)}</td>
-                <td/>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Upload dokumen per ruas */}
-      {terkontrak && (
-        <div>
-          <div className="section-title"><FileText size={13}/> Upload Dokumen Kontrak per Ruas</div>
-
-          {/* Status ruas yang sudah disave */}
-          {ruas.map(r => savedRuas[r.id] && (
-            <div key={r.id} style={{ background:"var(--green-bg)",border:"1px solid var(--green)",borderRadius:8,padding:"8px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:10,fontSize:12 }}>
-              <CheckCircle size={14} color={S.green}/>
-              <span style={{ fontWeight:600,color:S.green }}>{r.kode}  -  {r.nama}</span>
-              <span style={{ color:S.muted }}>* Dokumen tersimpan</span>
-              <button className="btn btn-outline btn-xs" style={{ marginLeft:"auto" }} onClick={()=>{ setSavedRuas(s=>({...s,[r.id]:false})); setSelectedRuas(r.id); }}>Edit</button>
-            </div>
-          ))}
-
-          {/* Pilih ruas */}
-          <div style={{ background:S.surface,border:`1px solid ${S.border2}`,borderRadius:10,padding:20,marginBottom:20 }}>
-            <div style={{ fontSize:12,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Pilih Ruas untuk Upload Dokumen</div>
-            <select value={selectedRuas} onChange={e=>{ setSelectedRuas(e.target.value); }}
-              style={{ width:"100%",background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,color:selectedRuas?S.text:S.muted,padding:"10px 14px",fontSize:13,marginBottom:selectedRuas?16:0 }}>
-              <option value="">-- Pilih Ruas Terlebih Dahulu --</option>
-              {ruas.filter(r=>!savedRuas[r.id]).map(r => (
-                <option key={r.id} value={r.id}>{r.kode}  -  {r.nama} ({r.panjang} {r.satuan})</option>
-              ))}
-            </select>
-
-            {selectedRuas && current && (
-              <div>
-                {/* Ruas info */}
-                <div style={{ background:S.surface2,border:`1px solid var(--accent)`,borderRadius:8,padding:"10px 14px",marginBottom:16,display:"flex",gap:16,flexWrap:"wrap" }}>
-                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>RUAS</div><div style={{ fontSize:13,fontWeight:700,color:S.accent }}>{current.nama}</div></div>
-                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PANJANG</div><div style={{ fontSize:13,fontWeight:700 }}>{current.panjang} {current.satuan}</div></div>
-                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PAGU RK</div><div style={{ fontSize:13,fontWeight:700 }}>Rp {formatRupiah(current.paguRK)}</div></div>
-                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PENGADAAN</div><div style={{ fontSize:13,fontWeight:700 }}>{current.jenisPengadaan}</div></div>
-                </div>
-
-                {/* Dokumen per ruas */}
-                <div className="checklist-panel" style={{ marginBottom:12 }}>
-                  <div className="checklist-header">
-                    <span className="checklist-title"><FileText size={13} color={S.accent}/> Dokumen Ruas: {current.kode}  -  {current.nama.substring(0,40)}...</span>
+            {editingKontrak && isPemda ? (
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,padding:4 }}>
+                {[
+                  ["Nama Penyedia","namaPenyedia","text"],
+                  ["Alamat Penyedia","alamatPenyedia","text"],
+                  ["Nomor Kontrak","nomorKontrak","text"],
+                  ["Tanggal Kontrak","tanggalKontrak","text"],
+                  ["Nilai Kontrak (Rp)","nilaiKontrak","number"],
+                  ["Tanggal SPMK","tanggalSPMK","text"],
+                  ["Masa Pelaksanaan (hari)","masaPelaksanaan","number"],
+                  ["Masa Pemeliharaan (hari)","masaPemeliharaan","number"],
+                ].map(([lbl,key,type])=>(
+                  <div key={key}>
+                    <label style={{ fontSize:11,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em",display:"block",marginBottom:5 }}>{lbl}</label>
+                    <input type={type} value={formKontrak[key]} onChange={e=>setFormKontrak(k=>({...k,[key]:e.target.value}))} style={inpStyle}/>
                   </div>
-                  {DOCS_KONTRAK_RUAS.map(doc => {
-                    const k = getRuasDocKey(selectedRuas, doc.id);
-                    const st = docState[k] || {};
-                    return (
-                      <DocRow key={doc.id} doc={doc} state={st} isPemda={isPemda}
-                        onUpload={()=>onDocChange(k,{ uploaded:true,verifiedPFID:false,catatan:"" })}
-                        onVerify={()=>onDocChange(k,{ ...st,verifiedPFID:true,tanggalVerif:new Date().toISOString().split("T")[0] })}
-                        onReject={cat=>onDocChange(k,{ ...st,verifiedPFID:false,catatan:cat })}/>
-                    );
-                  })}
+                ))}
+              </div>
+            ) : (
+              <div>
+                <div className="detail-row">
+                  <div className="detail-field"><label>Nama Penyedia</label><value>{formKontrak.namaPenyedia}</value></div>
+                  <div className="detail-field"><label>Alamat</label><value style={{ fontSize:13,color:S.muted }}>{formKontrak.alamatPenyedia}</value></div>
                 </div>
-
-                {/* Progress dokumen */}
-                {(() => {
-                  const total = DOCS_KONTRAK_RUAS.filter(d=>d.required).length;
-                  const done = DOCS_KONTRAK_RUAS.filter(d=>d.required).filter(d=>docState[getRuasDocKey(selectedRuas,d.id)]?.uploaded).length;
-                  const pct = Math.round(done/total*100);
-                  const canSave = done === total;
-                  return (
-                    <div>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6 }}>
-                        <span style={{ color:S.muted,fontWeight:600 }}>Kelengkapan dokumen wajib</span>
-                        <span style={{ color:getColor(pct),fontWeight:700 }}>{done}/{total}</span>
-                      </div>
-                      <div style={{ height:6,background:S.border,borderRadius:99,overflow:"hidden",marginBottom:14 }}>
-                        <div style={{ width:`${pct}%`,height:"100%",background:getColor(pct),borderRadius:99,transition:"width 0.5s" }}/>
-                      </div>
-                      <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
-                        <button className="btn btn-outline" onClick={()=>setSelectedRuas("")}>Batalkan</button>
-                        <button className={`btn ${canSave?"btn-primary":"btn-outline"}`} disabled={!canSave}
-                          onClick={()=>{ if(canSave) handleSave(selectedRuas); }}
-                          style={{ opacity:canSave?1:0.5 }}>
-                          {canSave ? <><CheckCircle size={13}/> Simpan Ruas</> : <><Lock size={13}/> Lengkapi dokumen wajib</>}
-                        </button>
-                      </div>
-                      {showSaveConfirm===selectedRuas && (
-                        <div className="alert alert-info" style={{ marginTop:10 }}>
-                          <CheckCircle size={13}/> Dokumen ruas berhasil disimpan!
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
+                <div className="detail-row">
+                  <div className="detail-field"><label>Nomor Kontrak</label><value style={{ fontFamily:"'DM Mono',monospace",fontSize:13 }}>{formKontrak.nomorKontrak}</value></div>
+                  <div className="detail-field"><label>Tanggal Kontrak</label><value>{formKontrak.tanggalKontrak}</value></div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-field"><label>Nilai Kontrak (Rp)</label><value style={{ color:S.accent,fontFamily:"'DM Mono',monospace" }}>{formatRupiah(parseInt(formKontrak.nilaiKontrak)||0)}</value></div>
+                  <div className="detail-field"><label>Tanggal SPMK</label><value>{formKontrak.tanggalSPMK}</value></div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-field"><label>Masa Pelaksanaan</label><value>{formKontrak.masaPelaksanaan} hari kalender</value></div>
+                  <div className="detail-field"><label>Masa Pemeliharaan</label><value>{formKontrak.masaPemeliharaan} hari kalender</value></div>
+                </div>
               </div>
             )}
           </div>
+        </div>
+      )}
 
-          {ruas.every(r=>savedRuas[r.id]) && (
-            <div style={{ background:"var(--green-bg)",border:"1px solid var(--green)",borderRadius:10,padding:"14px 20px",display:"flex",alignItems:"center",gap:12 }}>
-              <CheckCircle size={20} color={S.green}/>
-              <div>
-                <div style={{ fontWeight:700,color:S.green }}>Semua ruas telah dilengkapi dokumennya</div>
-                <div style={{ fontSize:12,color:S.muted }}>Total {ruas.length} ruas tersimpan</div>
+      {/* ── MENU ADDENDUM (sesuai gambar 3) ── */}
+      {terkontrak && (
+        <div className="table-wrap" style={{ marginBottom:20 }}>
+          <div className="table-header">
+            <span className="table-title"><RefreshCw size={13} style={{ color:S.yellow }}/> Data Addendum Kontrak</span>
+            {isPemda && (
+              <button className="btn btn-primary btn-xs" onClick={()=>setShowAddAddendum(v=>!v)}>
+                <Plus size={12}/> Tambah Addendum
+              </button>
+            )}
+          </div>
+          {showAddAddendum && isPemda && (
+            <div style={{ padding:"20px 24px",background:S.surface2,borderBottom:`1px solid ${S.border}` }}>
+              <div style={{ fontSize:14,fontWeight:700,color:S.yellow,marginBottom:16 }}>Addendum {addendumList.length+1}</div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
+                {[
+                  ["Tanggal Kontrak *","tanggalKontrak","text"],
+                  ["Nomor Kontrak *","nomorKontrak","text"],
+                  ["Nilai Kontrak (Rp) *","nilaiKontrak","number"],
+                  ["Tanggal SPMK *","tanggalSPMK","text"],
+                  ["Masa Pelaksanaan (Hari Kalender) *","masaPelaksanaan","number"],
+                  ["Masa Pemeliharaan (Hari Kalender) *","masaPemeliharaan","number"],
+                ].map(([lbl,key,type])=>(
+                  <div key={key}>
+                    <label style={{ fontSize:12,fontWeight:600,color:S.muted,display:"block",marginBottom:5 }}>{lbl}</label>
+                    <input type={type} value={addendumForm[key]}
+                      placeholder={type==="number"?"Inputkan Hanya Angka Saja.":""}
+                      onChange={e=>setAddendumForm(a=>({...a,[key]:e.target.value}))} style={inpStyle}/>
+                  </div>
+                ))}
+                <div style={{ gridColumn:"1/-1" }}>
+                  <label style={{ fontSize:12,fontWeight:600,color:S.muted,display:"block",marginBottom:5 }}>Alasan Addendum *</label>
+                  <textarea value={addendumForm.alasanAddendum}
+                    onChange={e=>setAddendumForm(a=>({...a,alasanAddendum:e.target.value}))}
+                    placeholder="Menyesuaikan Kondisi Lapangan..."
+                    style={{ ...inpStyle,minHeight:80,resize:"vertical" }}/>
+                </div>
               </div>
+              <div style={{ display:"flex",gap:8,justifyContent:"flex-end",marginTop:14 }}>
+                <button className="btn btn-outline btn-sm" onClick={()=>setShowAddAddendum(false)}>Batal</button>
+                <button className="btn btn-primary btn-sm" onClick={handleSaveAddendum}
+                  disabled={!addendumForm.tanggalKontrak||!addendumForm.nilaiKontrak}>
+                  <CheckCircle size={13}/> Simpan Addendum
+                </button>
+              </div>
+            </div>
+          )}
+          {addendumList.length === 0 ? (
+            <div style={{ padding:"20px 24px",fontSize:12,color:S.muted,fontStyle:"italic",textAlign:"center" }}>
+              Belum ada addendum kontrak
+            </div>
+          ) : (
+            <div style={{ overflowX:"auto" }}>
+              <table>
+                <thead><tr>
+                  <th>ADDENDUM</th><th>NOMOR KONTRAK</th><th>TANGGAL KONTRAK</th>
+                  <th className="right">NILAI KONTRAK (Rp)</th><th>TANGGAL SPMK</th>
+                  <th className="center">MASA PELAKSANAAN</th><th className="center">MASA PEMELIHARAAN</th>
+                  <th>ALASAN ADDENDUM</th>
+                </tr></thead>
+                <tbody>
+                  {addendumList.map((a,i)=>(
+                    <tr key={i}>
+                      <td className="center"><span className="badge badge-yellow">Addendum {a.no}</span></td>
+                      <td style={{ fontFamily:"'DM Mono',monospace",fontSize:11 }}>{a.nomorKontrak||"-"}</td>
+                      <td>{a.tanggalKontrak}</td>
+                      <td className="right" style={{ fontFamily:"'DM Mono',monospace" }}>{formatRupiah(parseInt(a.nilaiKontrak)||0)}</td>
+                      <td>{a.tanggalSPMK||"-"}</td>
+                      <td className="center">{a.masaPelaksanaan||"-"} hari</td>
+                      <td className="center">{a.masaPemeliharaan||"-"} hari</td>
+                      <td style={{ fontSize:12 }}>{a.alasanAddendum||"-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -266,6 +316,12 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
   const [inputRealisasiRP, setInputRealisasiRP] = useState(String(kegiatan.realisasiRP || ""));
   const [inputFisikKm, setInputFisikKm] = useState(String(kegiatan.panjang || ""));
   const [savedProgres, setSavedProgres] = useState(false);
+  // State foto di dalam tabel progres
+  const [fotoInProgres, setFotoInProgres] = useState({
+    foto_0:{ uploaded:false, verified:false },
+    foto_50:{ uploaded:false, verified:false },
+    foto_100:{ uploaded:false, verified:false },
+  });
 
   const progresDocId = { TW1:"progres_keu",TW2:"progres_keu_tw2",TW3:"progres_keu_tw3",TW4:"progres_keu_tw4" }[triwulan]||"progres_keu";
   const progresState = docState[progresDocId]||{};
@@ -433,9 +489,10 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
               <th className="right">PAGU RK (Rp)</th><th className="right">NILAI KONTRAK (Rp)</th>
               <th className="right">REALISASI (Rp)</th><th className="center">%</th>
               <th className="center">THD KONTRAK</th><th className="center">FISIK (%)</th>
+              <th className="center">FOTO 0%</th><th className="center">FOTO 50%</th><th className="center">FOTO 100%</th>
             </tr></thead>
             <tbody>
-              <tr><td colSpan={11} style={{ fontWeight:700,fontSize:11,color:S.green,background:"rgba(46,160,67,0.07)",padding:"7px 14px" }}>KEGIATAN FISIK</td></tr>
+              <tr><td colSpan={14} style={{ fontWeight:700,fontSize:11,color:S.green,background:"rgba(46,160,67,0.07)",padding:"7px 14px" }}>KEGIATAN FISIK</td></tr>
               <tr>
                 <td>1</td>
                 <td style={{ maxWidth:260,fontSize:12,lineHeight:1.6,fontWeight:600 }}>{kegiatan.nama}</td>
@@ -449,8 +506,24 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
                 <td className="center">
                   <span className={`badge ${displayFisik===100?"badge-green":"badge-yellow"}`}>{displayFisik}%</span>
                 </td>
+                {/* Kolom foto — upload inline di tabel */}
+                {["foto_0","foto_50","foto_100"].map(fid=>(
+                  <td key={fid} className="center">
+                    <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:3 }}>
+                      {fotoInProgres[fid]?.uploaded
+                        ? <span className={`badge badge-${fotoInProgres[fid].verified?"green":"yellow"}`} style={{ fontSize:9 }}>{fotoInProgres[fid].verified?"✓ OK":"⏳"}</span>
+                        : isPemda
+                          ? <button className="btn btn-primary btn-xs" style={{ fontSize:9,padding:"2px 6px" }}
+                              onClick={()=>setFotoInProgres(s=>({...s,[fid]:{...s[fid],uploaded:true}}))}>
+                              <Upload size={9}/> Upload
+                            </button>
+                          : <span style={{ fontSize:10,color:S.dim }}>-</span>
+                      }
+                    </div>
+                  </td>
+                ))}
               </tr>
-              <tr><td colSpan={11} style={{ fontWeight:700,fontSize:11,color:S.accent,background:"rgba(26,127,224,0.05)",padding:"7px 14px" }}>KEGIATAN PENUNJANG</td></tr>
+              <tr><td colSpan={14} style={{ fontWeight:700,fontSize:11,color:S.accent,background:"rgba(26,127,224,0.05)",padding:"7px 14px" }}>KEGIATAN PENUNJANG</td></tr>
               {penunjang.map(p=>(
                 <tr key={p.no}>
                   <td>{p.no}</td><td style={{ fontSize:12,maxWidth:260 }}>{p.nama}</td>
@@ -460,6 +533,7 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
                   <td className="right">{formatRupiah(p.realisasi)}</td>
                   <td className="center" style={{ color:getColor(p.realPct),fontWeight:700 }}>{p.realPct}</td>
                   <td className="center">0</td><td className="center">{p.fisik}</td>
+                  <td colSpan={3} className="center" style={{ color:S.dim,fontSize:11 }}>-</td>
                 </tr>
               ))}
               <tr style={{ background:S.surface2,borderTop:`2px solid ${S.border}` }}>
@@ -470,6 +544,7 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
                 <td className="center" style={{ fontWeight:800,color:getColor(displayReal) }}>{displayReal.toFixed(2)}</td>
                 <td className="center" style={{ fontWeight:800,color:S.green }}>100,00</td>
                 <td className="center" style={{ fontWeight:800,color:getColor(displayFisik) }}>{displayFisik}%</td>
+                <td colSpan={3}/>
               </tr>
             </tbody>
           </table>
