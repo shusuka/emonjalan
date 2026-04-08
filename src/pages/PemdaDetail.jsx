@@ -17,10 +17,7 @@ import {
 } from "./PemdaHelpers";
 
 /* ════════════════════════════════════════════
-   VIDEO LINK MODAL
-════════════════════════════════════════════ */
-/* ════════════════════════════════════════════
-   PREVIEW MODAL — untuk DPA, Bukti Progres, Foto
+   PREVIEW MODAL
 ════════════════════════════════════════════ */
 function PreviewModal({ label, type, onClose }) {
   const icon = type==="foto" ? "📷" : type==="excel" ? "📊" : type==="pdf" ? "📄" : "📁";
@@ -50,10 +47,10 @@ function VideoLinkModal({ existing, onClose, onConfirm }) {
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center" }}>
       <div style={{ background:S.surface,border:`1px solid ${S.border}`,borderRadius:12,padding:28,width:480,maxWidth:"92vw" }}>
         <div style={{ display:"flex",justifyContent:"space-between",marginBottom:16 }}>
-          <div style={{ fontWeight:700,fontSize:15 }}>Validasi Link Video</div>
+          <div style={{ fontWeight:700,fontSize:15 }}>Link Video Ruas</div>
           <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:S.muted }}><X size={18}/></button>
         </div>
-        <div style={{ fontSize:12,color:S.muted,marginBottom:12 }}>Masukkan link video hasil penanganan 100%. Video PKRMS sangat dianjurkan.</div>
+        <div style={{ fontSize:12,color:S.muted,marginBottom:12 }}>Masukkan link video ruas yang ditangani. Link YouTube, Google Drive, atau platform lainnya.</div>
         <div style={{ display:"flex",gap:8,marginBottom:16,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,padding:"9px 12px",alignItems:"center" }}>
           <Link2 size={14} color={S.muted}/>
           <input value={link} onChange={e=>setLink(e.target.value)} placeholder="https://youtube.com/... atau https://drive.google.com/..."
@@ -76,11 +73,18 @@ function VideoLinkModal({ existing, onClose, onConfirm }) {
   );
 }
 
+/* helper: format tanggal dari value input date (yyyy-mm-dd) ke dd/mm/yyyy untuk display */
+function fmtTgl(val) {
+  if (!val) return "-";
+  const [y,m,d] = val.split("-");
+  if (!y||!m||!d) return val;
+  return `${d}/${m}/${y}`;
+}
+
 /* ════════════════════════════════════════════
    TAB: DATA KONTRAK
-   - Dropdown pilih ruas dulu
-   - Per ruas: upload DOCS_KONTRAK_RUAS
-   - Setelah semua dokumen upload baru bisa Save
+   - Addendum dipisah per ruas (addendumPerRuas)
+   - Format tanggal pakai date picker
 ════════════════════════════════════════════ */
 function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
   const kontrakDefault = sampleKontrak["Provinsi Aceh"];
@@ -88,51 +92,46 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
   const [savedRuas, setSavedRuas] = useState({});
   const [showSaveConfirm, setShowSaveConfirm] = useState(null);
 
-  // Form data penyedia editable
   const [formKontrak, setFormKontrak] = useState({
     namaPenyedia: kontrakDefault.namaPenyedia, alamatPenyedia: kontrakDefault.alamatPenyedia,
-    nomorKontrak: kontrakDefault.nomorKontrak, tanggalKontrak: kontrakDefault.tanggalKontrak,
-    nilaiKontrak: String(kontrakDefault.nilaiKontrak), tanggalSPMK: kontrakDefault.tanggalSPMK,
-    masaPelaksanaan: String(kontrakDefault.masaPelaksanaan), masaPemeliharaan: String(kontrakDefault.masaPemeliharaan),
+    nomorKontrak: kontrakDefault.nomorKontrak,
+    tanggalKontrak: kontrakDefault.tanggalKontrak, // format yyyy-mm-dd
+    nilaiKontrak: String(kontrakDefault.nilaiKontrak),
+    tanggalSPMK: kontrakDefault.tanggalSPMK, // format yyyy-mm-dd
+    masaPelaksanaan: String(kontrakDefault.masaPelaksanaan),
+    masaPemeliharaan: String(kontrakDefault.masaPemeliharaan),
   });
   const [editingKontrak, setEditingKontrak] = useState(false);
 
-  // Addendum
-  const [addendumList, setAddendumList] = useState([]);
-  const [showAddAddendum, setShowAddAddendum] = useState(false);
-  const [addendumForm, setAddendumForm] = useState({
-    tanggalKontrak:"", nomorKontrak:"", nilaiKontrak:"",
-    tanggalSPMK:"", masaPelaksanaan:"", masaPemeliharaan:"", alasanAddendum:""
-  });
+  // REVISI 3: addendum dipisah per ruas → addendumPerRuas[ruasId] = []
+  const [addendumPerRuas, setAddendumPerRuas] = useState({});
+  const [showAddAddendumRuas, setShowAddAddendumRuas] = useState(null); // ruasId atau null
+  const emptyAddForm = { tanggalKontrak:"", nomorKontrak:"", nilaiKontrak:"", tanggalSPMK:"", masaPelaksanaan:"", masaPemeliharaan:"", alasanAddendum:"" };
+  const [addendumForm, setAddendumForm] = useState(emptyAddForm);
 
   const ruas = sampleRuas;
   const current = ruas.find(r => r.id === selectedRuas);
 
   function getRuasDocKey(ruasId, docId) { return `kontrak_${ruasId}_${docId}`; }
-  function allDocsUploaded(ruasId) {
-    return DOCS_KONTRAK_RUAS.filter(d => d.required).every(d => {
-      const k = getRuasDocKey(ruasId, d.id);
-      return docState[k]?.uploaded;
-    });
-  }
   function handleSave(ruasId) {
     setSavedRuas(s => ({ ...s, [ruasId]: true }));
     setShowSaveConfirm(ruasId);
     setTimeout(() => setShowSaveConfirm(null), 2500);
   }
-  function handleSaveAddendum() {
-    if(!addendumForm.tanggalKontrak||!addendumForm.nilaiKontrak) return;
-    setAddendumList(l=>[...l,{ ...addendumForm, no: l.length+1 }]);
-    setAddendumForm({ tanggalKontrak:"",nomorKontrak:"",nilaiKontrak:"",tanggalSPMK:"",masaPelaksanaan:"",masaPemeliharaan:"",alasanAddendum:"" });
-    setShowAddAddendum(false);
+  function handleSaveAddendum(ruasId) {
+    if (!addendumForm.tanggalKontrak || !addendumForm.nilaiKontrak) return;
+    setAddendumPerRuas(prev => {
+      const list = prev[ruasId] || [];
+      return { ...prev, [ruasId]: [...list, { ...addendumForm, no: list.length + 1 }] };
+    });
+    setAddendumForm(emptyAddForm);
+    setShowAddAddendumRuas(null);
   }
 
-  const nilaiKontrakAktif = addendumList.length>0
-    ? parseInt(addendumList[addendumList.length-1].nilaiKontrak)||parseInt(formKontrak.nilaiKontrak)||0
-    : parseInt(formKontrak.nilaiKontrak)||0;
-
   const inpStyle = { background:S.surface,border:`1px solid ${S.border}`,borderRadius:6,color:S.text,padding:"7px 10px",fontSize:13,width:"100%",boxSizing:"border-box" };
+  const dateStyle = { ...inpStyle, colorScheme:"dark" };
 
+  // Untuk tabel daftar paket: gunakan addendum per ruas masing-masing
   return (
     <div>
       {!terkontrak && (
@@ -141,7 +140,6 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
         </div>
       )}
 
-      {/* ── TABEL PREVIEW PAKET KEGIATAN (sesuai gambar 1) ── */}
       {terkontrak && (
         <div className="table-wrap" style={{ marginBottom:20 }}>
           <div className="table-header">
@@ -156,27 +154,32 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
                 <th className="right">NILAI KONTRAK</th>
                 <th>TANGGAL KONTRAK</th>
                 <th className="center">ADDENDUM</th>
-                <th>ALASAN ADDENDUM</th>
+                <th>ALASAN ADDENDUM TERAKHIR</th>
               </tr></thead>
               <tbody>
-                {ruas.map((r,i)=>(
-                  <tr key={r.id}>
-                    <td className="center">{i+1}</td>
-                    <td style={{ fontSize:12,lineHeight:1.5 }}>{r.kode} - {r.nama}</td>
-                    <td className="right">{formatRupiah(r.paguRK)}</td>
-                    <td className="right">{formatRupiah(nilaiKontrakAktif || r.paguRK)}</td>
-                    <td style={{ fontFamily:"'DM Mono',monospace",fontSize:12 }}>{addendumList.length>0?addendumList[addendumList.length-1].tanggalKontrak:formKontrak.tanggalKontrak}</td>
-                    <td className="center"><span className={`badge ${addendumList.length>0?"badge-yellow":"badge-green"}`}>{addendumList.length}</span></td>
-                    <td style={{ fontSize:12,color:S.muted }}>{addendumList.length>0?addendumList[addendumList.length-1].alasanAddendum:"-"}</td>
-                  </tr>
-                ))}
+                {ruas.map((r,i)=>{
+                  const addList = addendumPerRuas[r.id] || [];
+                  const lastAdd = addList[addList.length-1];
+                  const nilaiAktif = lastAdd ? parseInt(lastAdd.nilaiKontrak)||0 : parseInt(formKontrak.nilaiKontrak)||0;
+                  const tglAktif = lastAdd ? lastAdd.tanggalKontrak : formKontrak.tanggalKontrak;
+                  return (
+                    <tr key={r.id}>
+                      <td className="center">{i+1}</td>
+                      <td style={{ fontSize:12,lineHeight:1.5 }}>{r.kode} - {r.nama}</td>
+                      <td className="right">{formatRupiah(r.paguRK)}</td>
+                      <td className="right">{formatRupiah(nilaiAktif || r.paguRK)}</td>
+                      <td style={{ fontFamily:"'DM Mono',monospace",fontSize:12 }}>{fmtTgl(tglAktif)}</td>
+                      <td className="center"><span className={`badge ${addList.length>0?"badge-yellow":"badge-green"}`}>{addList.length}</span></td>
+                      <td style={{ fontSize:12,color:S.muted }}>{lastAdd ? lastAdd.alasanAddendum : "-"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* ── DATA PENYEDIA & KONTRAK (editable oleh PEMDA) ── */}
       {terkontrak && (
         <div className="detail-card" style={{ marginBottom:20 }}>
           <div className="detail-card-header">
@@ -205,15 +208,19 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
                   ["Nama Penyedia","namaPenyedia","text"],
                   ["Alamat Penyedia","alamatPenyedia","text"],
                   ["Nomor Kontrak","nomorKontrak","text"],
-                  ["Tanggal Kontrak","tanggalKontrak","text"],
                   ["Nilai Kontrak (Rp)","nilaiKontrak","number"],
-                  ["Tanggal SPMK","tanggalSPMK","text"],
                   ["Masa Pelaksanaan (hari)","masaPelaksanaan","number"],
                   ["Masa Pemeliharaan (hari)","masaPemeliharaan","number"],
                 ].map(([lbl,key,type])=>(
                   <div key={key}>
                     <label style={{ fontSize:11,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em",display:"block",marginBottom:5 }}>{lbl}</label>
                     <input type={type} value={formKontrak[key]} onChange={e=>setFormKontrak(k=>({...k,[key]:e.target.value}))} style={inpStyle}/>
+                  </div>
+                ))}
+                {[["Tanggal Kontrak","tanggalKontrak"],["Tanggal SPMK","tanggalSPMK"]].map(([lbl,key])=>(
+                  <div key={key}>
+                    <label style={{ fontSize:11,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em",display:"block",marginBottom:5 }}>{lbl}</label>
+                    <input type="date" value={formKontrak[key]} onChange={e=>setFormKontrak(k=>({...k,[key]:e.target.value}))} style={dateStyle}/>
                   </div>
                 ))}
               </div>
@@ -225,11 +232,11 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
                 </div>
                 <div className="detail-row">
                   <div className="detail-field"><label>Nomor Kontrak</label><value style={{ fontFamily:"'DM Mono',monospace",fontSize:13 }}>{formKontrak.nomorKontrak}</value></div>
-                  <div className="detail-field"><label>Tanggal Kontrak</label><value>{formKontrak.tanggalKontrak}</value></div>
+                  <div className="detail-field"><label>Tanggal Kontrak</label><value>{fmtTgl(formKontrak.tanggalKontrak)}</value></div>
                 </div>
                 <div className="detail-row">
                   <div className="detail-field"><label>Nilai Kontrak (Rp)</label><value style={{ color:S.accent,fontFamily:"'DM Mono',monospace" }}>{formatRupiah(parseInt(formKontrak.nilaiKontrak)||0)}</value></div>
-                  <div className="detail-field"><label>Tanggal SPMK</label><value>{formKontrak.tanggalSPMK}</value></div>
+                  <div className="detail-field"><label>Tanggal SPMK</label><value>{fmtTgl(formKontrak.tanggalSPMK)}</value></div>
                 </div>
                 <div className="detail-row">
                   <div className="detail-field"><label>Masa Pelaksanaan</label><value>{formKontrak.masaPelaksanaan} hari kalender</value></div>
@@ -241,87 +248,94 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
         </div>
       )}
 
-      {/* ── MENU ADDENDUM (sesuai gambar 3) ── */}
+      {/* REVISI 3: Addendum per Ruas — masing-masing ruas punya addendum sendiri */}
       {terkontrak && (
-        <div className="table-wrap" style={{ marginBottom:20 }}>
-          <div className="table-header">
-            <span className="table-title"><RefreshCw size={13} style={{ color:S.yellow }}/> Data Addendum Kontrak</span>
-            {isPemda && (
-              <button className="btn btn-primary btn-xs" onClick={()=>setShowAddAddendum(v=>!v)}>
-                <Plus size={12}/> Tambah Addendum
-              </button>
-            )}
-          </div>
-          {showAddAddendum && isPemda && (
-            <div style={{ padding:"20px 24px",background:S.surface2,borderBottom:`1px solid ${S.border}` }}>
-              <div style={{ fontSize:14,fontWeight:700,color:S.yellow,marginBottom:16 }}>Addendum {addendumList.length+1}</div>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
-                {[
-                  ["Tanggal Kontrak *","tanggalKontrak","text"],
-                  ["Nomor Kontrak *","nomorKontrak","text"],
-                  ["Nilai Kontrak (Rp) *","nilaiKontrak","number"],
-                  ["Tanggal SPMK *","tanggalSPMK","text"],
-                  ["Masa Pelaksanaan (Hari Kalender) *","masaPelaksanaan","number"],
-                  ["Masa Pemeliharaan (Hari Kalender) *","masaPemeliharaan","number"],
-                ].map(([lbl,key,type])=>(
-                  <div key={key}>
-                    <label style={{ fontSize:12,fontWeight:600,color:S.muted,display:"block",marginBottom:5 }}>{lbl}</label>
-                    <input type={type} value={addendumForm[key]}
-                      placeholder={type==="number"?"Inputkan Hanya Angka Saja.":""}
-                      onChange={e=>setAddendumForm(a=>({...a,[key]:e.target.value}))} style={inpStyle}/>
-                  </div>
-                ))}
-                <div style={{ gridColumn:"1/-1" }}>
-                  <label style={{ fontSize:12,fontWeight:600,color:S.muted,display:"block",marginBottom:5 }}>Alasan Addendum *</label>
-                  <textarea value={addendumForm.alasanAddendum}
-                    onChange={e=>setAddendumForm(a=>({...a,alasanAddendum:e.target.value}))}
-                    placeholder="Menyesuaikan Kondisi Lapangan..."
-                    style={{ ...inpStyle,minHeight:80,resize:"vertical" }}/>
+        <div style={{ marginBottom:20 }}>
+          <div className="section-title" style={{ marginBottom:12 }}><RefreshCw size={13} style={{ color:S.yellow }}/> Data Addendum Kontrak (per Ruas)</div>
+          {ruas.map(r => {
+            const addList = addendumPerRuas[r.id] || [];
+            const isOpen = showAddAddendumRuas === r.id;
+            return (
+              <div key={r.id} className="table-wrap" style={{ marginBottom:16 }}>
+                <div className="table-header">
+                  <span className="table-title" style={{ fontSize:12 }}>
+                    <FileText size={12} style={{ color:S.muted }}/> {r.kode} — {r.nama.substring(0,50)}
+                    <span className={`badge ${addList.length>0?"badge-yellow":"badge-green"}`} style={{ marginLeft:8 }}>{addList.length} addendum</span>
+                  </span>
+                  {isPemda && (
+                    <button className="btn btn-primary btn-xs" onClick={()=>{ setShowAddAddendumRuas(isOpen?null:r.id); setAddendumForm(emptyAddForm); }}>
+                      <Plus size={12}/> Tambah Addendum
+                    </button>
+                  )}
                 </div>
+                {isOpen && isPemda && (
+                  <div style={{ padding:"20px 24px",background:S.surface2,borderBottom:`1px solid ${S.border}` }}>
+                    <div style={{ fontSize:14,fontWeight:700,color:S.yellow,marginBottom:16 }}>Addendum {addList.length+1} — {r.nama.substring(0,40)}</div>
+                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
+                      {[["Nomor Kontrak *","nomorKontrak","text"],["Nilai Kontrak (Rp) *","nilaiKontrak","number"],
+                        ["Masa Pelaksanaan (Hari) *","masaPelaksanaan","number"],["Masa Pemeliharaan (Hari) *","masaPemeliharaan","number"]
+                      ].map(([lbl,key,type])=>(
+                        <div key={key}>
+                          <label style={{ fontSize:12,fontWeight:600,color:S.muted,display:"block",marginBottom:5 }}>{lbl}</label>
+                          <input type={type} value={addendumForm[key]} onChange={e=>setAddendumForm(a=>({...a,[key]:e.target.value}))} style={inpStyle} placeholder={type==="number"?"Angka saja":""}/>
+                        </div>
+                      ))}
+                      {[["Tanggal Kontrak *","tanggalKontrak"],["Tanggal SPMK *","tanggalSPMK"]].map(([lbl,key])=>(
+                        <div key={key}>
+                          <label style={{ fontSize:12,fontWeight:600,color:S.muted,display:"block",marginBottom:5 }}>{lbl}</label>
+                          <input type="date" value={addendumForm[key]} onChange={e=>setAddendumForm(a=>({...a,[key]:e.target.value}))} style={dateStyle}/>
+                        </div>
+                      ))}
+                      <div style={{ gridColumn:"1/-1" }}>
+                        <label style={{ fontSize:12,fontWeight:600,color:S.muted,display:"block",marginBottom:5 }}>Alasan Addendum *</label>
+                        <textarea value={addendumForm.alasanAddendum} onChange={e=>setAddendumForm(a=>({...a,alasanAddendum:e.target.value}))}
+                          placeholder="Menyesuaikan kondisi lapangan..."
+                          style={{ ...inpStyle,minHeight:80,resize:"vertical" }}/>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex",gap:8,justifyContent:"flex-end",marginTop:14 }}>
+                      <button className="btn btn-outline btn-sm" onClick={()=>setShowAddAddendumRuas(null)}>Batal</button>
+                      <button className="btn btn-primary btn-sm" onClick={()=>handleSaveAddendum(r.id)}
+                        disabled={!addendumForm.tanggalKontrak||!addendumForm.nilaiKontrak}>
+                        <CheckCircle size={13}/> Simpan Addendum
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {addList.length === 0 ? (
+                  <div style={{ padding:"14px 20px",fontSize:12,color:S.muted,fontStyle:"italic" }}>Belum ada addendum untuk ruas ini</div>
+                ) : (
+                  <div style={{ overflowX:"auto" }}>
+                    <table>
+                      <thead><tr>
+                        <th>ADDENDUM</th><th>NOMOR KONTRAK</th><th>TANGGAL KONTRAK</th>
+                        <th className="right">NILAI KONTRAK (Rp)</th><th>TANGGAL SPMK</th>
+                        <th className="center">MASA PELAKS.</th><th className="center">MASA PEMELIHARAAN</th>
+                        <th>ALASAN</th>
+                      </tr></thead>
+                      <tbody>
+                        {addList.map((a,i)=>(
+                          <tr key={i}>
+                            <td className="center"><span className="badge badge-yellow">Addendum {a.no}</span></td>
+                            <td style={{ fontFamily:"'DM Mono',monospace",fontSize:11 }}>{a.nomorKontrak||"-"}</td>
+                            <td style={{ fontFamily:"'DM Mono',monospace",fontSize:12 }}>{fmtTgl(a.tanggalKontrak)}</td>
+                            <td className="right" style={{ fontFamily:"'DM Mono',monospace" }}>{formatRupiah(parseInt(a.nilaiKontrak)||0)}</td>
+                            <td style={{ fontFamily:"'DM Mono',monospace",fontSize:12 }}>{fmtTgl(a.tanggalSPMK)||"-"}</td>
+                            <td className="center">{a.masaPelaksanaan||"-"} hari</td>
+                            <td className="center">{a.masaPemeliharaan||"-"} hari</td>
+                            <td style={{ fontSize:12 }}>{a.alasanAddendum||"-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div style={{ display:"flex",gap:8,justifyContent:"flex-end",marginTop:14 }}>
-                <button className="btn btn-outline btn-sm" onClick={()=>setShowAddAddendum(false)}>Batal</button>
-                <button className="btn btn-primary btn-sm" onClick={handleSaveAddendum}
-                  disabled={!addendumForm.tanggalKontrak||!addendumForm.nilaiKontrak}>
-                  <CheckCircle size={13}/> Simpan Addendum
-                </button>
-              </div>
-            </div>
-          )}
-          {addendumList.length === 0 ? (
-            <div style={{ padding:"20px 24px",fontSize:12,color:S.muted,fontStyle:"italic",textAlign:"center" }}>
-              Belum ada addendum kontrak
-            </div>
-          ) : (
-            <div style={{ overflowX:"auto" }}>
-              <table>
-                <thead><tr>
-                  <th>ADDENDUM</th><th>NOMOR KONTRAK</th><th>TANGGAL KONTRAK</th>
-                  <th className="right">NILAI KONTRAK (Rp)</th><th>TANGGAL SPMK</th>
-                  <th className="center">MASA PELAKSANAAN</th><th className="center">MASA PEMELIHARAAN</th>
-                  <th>ALASAN ADDENDUM</th>
-                </tr></thead>
-                <tbody>
-                  {addendumList.map((a,i)=>(
-                    <tr key={i}>
-                      <td className="center"><span className="badge badge-yellow">Addendum {a.no}</span></td>
-                      <td style={{ fontFamily:"'DM Mono',monospace",fontSize:11 }}>{a.nomorKontrak||"-"}</td>
-                      <td>{a.tanggalKontrak}</td>
-                      <td className="right" style={{ fontFamily:"'DM Mono',monospace" }}>{formatRupiah(parseInt(a.nilaiKontrak)||0)}</td>
-                      <td>{a.tanggalSPMK||"-"}</td>
-                      <td className="center">{a.masaPelaksanaan||"-"} hari</td>
-                      <td className="center">{a.masaPemeliharaan||"-"} hari</td>
-                      <td style={{ fontSize:12 }}>{a.alasanAddendum||"-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
 
-      {/* ── TENAGA KERJA ── */}
       {terkontrak && (
         <div className="table-wrap" style={{ marginBottom:20 }}>
           <div className="table-header">
@@ -350,11 +364,9 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
         </div>
       )}
 
-      {/* ── UPLOAD DOKUMEN PER RUAS ── */}
       {terkontrak && (
         <div>
           <div className="section-title"><FileText size={13}/> Upload Dokumen Kontrak per Ruas</div>
-
           {ruas.map(r => savedRuas[r.id] && (
             <div key={r.id} style={{ background:"var(--green-bg)",border:"1px solid var(--green)",borderRadius:8,padding:"8px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:10,fontSize:12 }}>
               <CheckCircle size={14} color={S.green}/>
@@ -363,7 +375,6 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
               <button className="btn btn-outline btn-xs" style={{ marginLeft:"auto" }} onClick={()=>{ setSavedRuas(s=>({...s,[r.id]:false})); setSelectedRuas(r.id); }}>Edit</button>
             </div>
           ))}
-
           <div style={{ background:S.surface,border:`1px solid ${S.border2}`,borderRadius:10,padding:20,marginBottom:20 }}>
             <div style={{ fontSize:12,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Pilih Ruas untuk Upload Dokumen</div>
             <select value={selectedRuas} onChange={e=>setSelectedRuas(e.target.value)}
@@ -373,15 +384,14 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
                 <option key={r.id} value={r.id}>{r.kode} - {r.nama} ({r.panjang} {r.satuan})</option>
               ))}
             </select>
-
             {selectedRuas && current && (
               <div>
                 <div style={{ background:S.surface2,border:"1px solid var(--accent)",borderRadius:8,padding:"10px 14px",marginBottom:16,display:"flex",gap:16,flexWrap:"wrap" }}>
                   <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>RUAS</div><div style={{ fontSize:13,fontWeight:700,color:S.accent }}>{current.nama}</div></div>
                   <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PANJANG</div><div style={{ fontSize:13,fontWeight:700 }}>{current.panjang} {current.satuan}</div></div>
                   <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PAGU RK</div><div style={{ fontSize:13,fontWeight:700 }}>Rp {formatRupiah(current.paguRK)}</div></div>
+                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PENGADAAN</div><div style={{ fontSize:13,fontWeight:700 }}>{current.jenisPengadaan}</div></div>
                 </div>
-
                 <div className="checklist-panel" style={{ marginBottom:12 }}>
                   <div className="checklist-header">
                     <span className="checklist-title"><FileText size={13} color={S.accent}/> Dokumen Ruas: {current.kode} — {current.nama.substring(0,40)}...</span>
@@ -397,151 +407,6 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
                     );
                   })}
                 </div>
-
-                {(() => {
-                  const reqDocs = DOCS_KONTRAK_RUAS.filter(d=>d.required);
-                  const done = reqDocs.filter(d=>(docState[getRuasDocKey(selectedRuas,d.id)]||{}).uploaded).length;
-                  const pct = Math.round(done/reqDocs.length*100);
-                  const allOk = done===reqDocs.length;
-                  return (
-                    <div>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6 }}>
-                        <span style={{ color:S.muted,fontWeight:600 }}>Kelengkapan dokumen wajib</span>
-                        <span style={{ color:getColor(pct),fontWeight:700 }}>{done}/{reqDocs.length}</span>
-                      </div>
-                      <div style={{ height:6,background:S.border,borderRadius:99,overflow:"hidden",marginBottom:14 }}>
-                        <div style={{ width:`${pct}%`,height:"100%",background:getColor(pct),borderRadius:99,transition:"width 0.5s" }}/>
-                      </div>
-                      <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
-                        <button className="btn btn-outline" onClick={()=>setSelectedRuas("")}>Batalkan</button>
-                        <button className={`btn ${allOk?"btn-primary":"btn-outline"}`} disabled={!allOk} onClick={()=>allOk&&handleSave(selectedRuas)}
-                          style={{ opacity:allOk?1:0.5 }}>
-                          {allOk ? <><CheckCircle size={13}/> Simpan Ruas</> : <><Lock size={13}/> Lengkapi dokumen wajib</>}
-                        </button>
-                      </div>
-                      {showSaveConfirm===selectedRuas && (
-                        <div className="alert alert-info" style={{ marginTop:10 }}>
-                          <CheckCircle size={13}/> Dokumen ruas berhasil disimpan!
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-
-          {ruas.every(r=>savedRuas[r.id]) && (
-            <div style={{ background:"var(--green-bg)",border:"1px solid var(--green)",borderRadius:10,padding:"14px 20px",display:"flex",alignItems:"center",gap:12 }}>
-              <CheckCircle size={20} color={S.green}/>
-              <div>
-                <div style={{ fontWeight:700,color:S.green }}>Semua ruas telah dilengkapi dokumennya</div>
-                <div style={{ fontSize:12,color:S.muted }}>Total {ruas.length} ruas tersimpan</div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── TENAGA KERJA DARI KONTRAK ── */}
-      {terkontrak && (
-        <div className="table-wrap" style={{ marginBottom:20 }}>
-          <div className="table-header">
-            <span className="table-title"><Users size={14} style={{ color:S.accent }}/> Data Tenaga Kerja (dari Kontrak)</span>
-          </div>
-          <table>
-            <thead><tr>
-              <th>KATEGORI</th><th>JABATAN</th><th className="center">JUMLAH</th><th>KUALIFIKASI</th>
-            </tr></thead>
-            <tbody>
-              {kontrakDefault.tenagaKerja.map((t,i) => (
-                <tr key={i}>
-                  <td><span className={`badge ${t.kategori==="Profesional"?"badge-blue":t.kategori==="Semi Profesional"?"badge-purple":"badge-green"}`}>{t.kategori}</span></td>
-                  <td style={{ fontWeight:500 }}>{t.jabatan}</td>
-                  <td className="center" style={{ fontWeight:700,fontSize:16 }}>{t.jumlah}</td>
-                  <td style={{ fontSize:12,color:S.muted }}>{t.ket}</td>
-                </tr>
-              ))}
-              <tr style={{ background:S.surface2 }}>
-                <td colSpan={2} style={{ textAlign:"right",fontWeight:800,fontSize:12 }}>TOTAL</td>
-                <td className="center" style={{ fontWeight:800,fontSize:16,color:S.accent }}>{kontrakDefault.tenagaKerja.reduce((s,t)=>s+t.jumlah,0)}</td>
-                <td/>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── UPLOAD DOKUMEN KONTRAK PER RUAS ── */}
-      {terkontrak && (
-        <div>
-          <div className="section-title"><FileText size={13}/> Upload Dokumen Kontrak per Ruas</div>
-
-          {/* Status ruas yang sudah disave */}
-          {ruas.map(r => savedRuas[r.id] && (
-            <div key={r.id} style={{ background:"var(--green-bg)",border:"1px solid var(--green)",borderRadius:8,padding:"8px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:10,fontSize:12 }}>
-              <CheckCircle size={14} color={S.green}/>
-              <span style={{ fontWeight:600,color:S.green }}>{r.kode} - {r.nama}</span>
-              <span style={{ color:S.muted }}>· Dokumen tersimpan</span>
-              <button className="btn btn-outline btn-xs" style={{ marginLeft:"auto" }} onClick={()=>{ setSavedRuas(s=>({...s,[r.id]:false})); setSelectedRuas(r.id); }}>Edit</button>
-            </div>
-          ))}
-
-          {/* Pilih ruas */}
-          <div style={{ background:S.surface,border:`1px solid ${S.border2}`,borderRadius:10,padding:20,marginBottom:20 }}>
-            <div style={{ fontSize:12,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Pilih Ruas untuk Upload Dokumen</div>
-            <select value={selectedRuas} onChange={e=>setSelectedRuas(e.target.value)}
-              style={{ width:"100%",background:S.surface2,border:`1px solid ${S.border}`,borderRadius:8,color:selectedRuas?S.text:S.muted,padding:"10px 14px",fontSize:13,marginBottom:selectedRuas?16:0 }}>
-              <option value="">-- Pilih Ruas Terlebih Dahulu --</option>
-              {ruas.filter(r=>!savedRuas[r.id]).map(r => (
-                <option key={r.id} value={r.id}>{r.kode} - {r.nama} ({r.panjang} {r.satuan})</option>
-              ))}
-            </select>
-
-            {selectedRuas && current && (
-              <div>
-                <div style={{ background:S.surface2,border:"1px solid var(--accent)",borderRadius:8,padding:"10px 14px",marginBottom:16,display:"flex",gap:16,flexWrap:"wrap" }}>
-                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>RUAS</div><div style={{ fontSize:13,fontWeight:700,color:S.accent }}>{current.nama}</div></div>
-                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PANJANG</div><div style={{ fontSize:13,fontWeight:700 }}>{current.panjang} {current.satuan}</div></div>
-                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PAGU RK</div><div style={{ fontSize:13,fontWeight:700 }}>Rp {formatRupiah(current.paguRK)}</div></div>
-                  <div><div style={{ fontSize:10,color:S.muted,fontWeight:700 }}>PENGADAAN</div><div style={{ fontSize:13,fontWeight:700 }}>{current.jenisPengadaan}</div></div>
-                </div>
-
-                <div className="checklist-panel" style={{ marginBottom:12 }}>
-                  <div className="checklist-header">
-                    <span className="checklist-title"><FileText size={13} color={S.accent}/> Dokumen Ruas: {current.kode} — {current.nama.substring(0,40)}...</span>
-                  </div>
-                  {DOCS_KONTRAK_RUAS.map(doc => {
-                    const k = getRuasDocKey(selectedRuas, doc.id);
-                    const st = docState[k]||{};
-                    return (
-                      <div key={doc.id} className="checklist-item">
-                        <div className={`check-icon ${st.verifiedPFID?"verified":st.uploaded?"done":"empty"}`}>
-                          {(st.uploaded) && <CheckCircle size={12}/>}
-                        </div>
-                        <div className="check-info">
-                          <div className="check-label">{doc.label}{doc.required&&<span className="check-required"> *wajib</span>}</div>
-                          <div className="check-meta" style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:3 }}>
-                            {st.uploaded && !st.verifiedPFID && <span className="pfid-stamp pfid-pending">⏳ Menunggu verifikasi PFID</span>}
-                            {st.verifiedPFID && <span className="pfid-stamp pfid-verified">✓ Diverifikasi PFID</span>}
-                            {!st.uploaded && <span className="pfid-stamp pfid-none">Belum diupload</span>}
-                          </div>
-                        </div>
-                        <div className="check-actions">
-                          {st.uploaded && <button className="btn btn-outline btn-xs"><Eye size={11}/> Lihat</button>}
-                          {isPemda && !st.uploaded && <button className="btn btn-primary btn-xs" onClick={()=>onDocChange(k,{ uploaded:true,verifiedPFID:false,catatan:"" })}><Upload size={11}/> Upload</button>}
-                          {!isPemda && st.uploaded && !st.verifiedPFID && (
-                            <button className="btn btn-success btn-xs" onClick={()=>onDocChange(k,{ ...st,verifiedPFID:true,tanggalVerif:new Date().toISOString().split("T")[0] })}>
-                              <CheckCircle size={11}/> Verifikasi
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Kelengkapan dan tombol simpan */}
                 {(() => {
                   const reqDocs = DOCS_KONTRAK_RUAS.filter(d=>d.required);
                   const doneDocs = reqDocs.filter(d=>(docState[getRuasDocKey(selectedRuas,d.id)]||{}).uploaded).length;
@@ -570,7 +435,6 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
               </div>
             )}
           </div>
-
           {ruas.every(r=>savedRuas[r.id]) && (
             <div style={{ background:"var(--green-bg)",border:"1px solid var(--green)",borderRadius:10,padding:"14px 20px",display:"flex",alignItems:"center",gap:12 }}>
               <CheckCircle size={20} color={S.green}/>
@@ -588,23 +452,37 @@ function TabDataKontrak({ isPemda, terkontrak, docState, onDocChange }) {
 
 /* ════════════════════════════════════════════
    TAB: DATA PROGRES
-   - Input progres fisik & keuangan oleh PEMDA
-   - Cek 100% di TW2-4 dengan propagasi
-   - Hapus checklist kepatuhan
+   REVISI 4: progres per TW independen + lock setelah simpan
+   REVISI 5: label "Upload Bukti Aktual Saat Ini"
 ════════════════════════════════════════════ */
 function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onDocChange, fisik100PerTW, onFisik100Change }) {
   const [dpaUploaded, setDpaUploaded] = useState(false);
   const [dpaVerified, setDpaVerified] = useState(false);
   const [progresModal, setProgresModal] = useState(false);
-  const [previewModal, setPreviewModal] = useState(null); // { label, type }
+  const [previewModal, setPreviewModal] = useState(null);
 
-  // Input progres oleh PEMDA
-  const [inputRealisasiPct, setInputRealisasiPct] = useState(String(kegiatan.realisasiPct || ""));
-  const [inputFisikPct, setInputFisikPct] = useState(String(kegiatan.fisik || ""));
-  const [inputRealisasiRP, setInputRealisasiRP] = useState(String(kegiatan.realisasiRP || ""));
-  const [inputFisikKm, setInputFisikKm] = useState(String(kegiatan.panjang || ""));
-  const [savedProgres, setSavedProgres] = useState(false);
-  // State foto di dalam tabel progres
+  // REVISI 4: state input per-TW yang independen
+  const initProgresData = {
+    realisasiPct: "", fisikPct: "", realisasiRP: "", fisikKm: ""
+  };
+  const [progresData, setProgresData] = useState({
+    TW1: { ...initProgresData }, TW2: { ...initProgresData },
+    TW3: { ...initProgresData }, TW4: { ...initProgresData },
+  });
+  // locked per TW setelah simpan
+  const [lockedTW, setLockedTW] = useState({ TW1:false, TW2:false, TW3:false, TW4:false });
+
+  const currData = progresData[triwulan] || initProgresData;
+  function setField(field, val) {
+    setProgresData(prev => ({ ...prev, [triwulan]: { ...prev[triwulan], [field]: val } }));
+  }
+  function handleSimpanProgres() {
+    setLockedTW(prev => ({ ...prev, [triwulan]: true }));
+  }
+  function handleBukaTW() {
+    setLockedTW(prev => ({ ...prev, [triwulan]: false }));
+  }
+
   const [fotoInProgres, setFotoInProgres] = useState({
     foto_0:{ uploaded:false, verified:false },
     foto_50:{ uploaded:false, verified:false },
@@ -614,12 +492,12 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
   const progresDocId = { TW1:"progres_keu",TW2:"progres_keu_tw2",TW3:"progres_keu_tw3",TW4:"progres_keu_tw4" }[triwulan]||"progres_keu";
   const progresState = docState[progresDocId]||{};
 
-  // Cek apakah TW sebelumnya sudah 100%
   const prevTWMap = { TW2:"TW1", TW3:"TW2", TW4:"TW3" };
   const prevTW = prevTWMap[triwulan];
   const prevIs100 = prevTW ? !!fisik100PerTW[prevTW] : false;
   const currentIs100 = !!fisik100PerTW[triwulan];
   const isLockedByPrev = (triwulan !== "TW1") && prevIs100;
+  const isInputLocked = lockedTW[triwulan] || isLockedByPrev;
 
   const showFisik100Check = triwulan !== "TW1";
 
@@ -628,15 +506,13 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
     { no:3,nama:"Perjalanan dinas ke/dari lokasi kegiatan (Penugasan)",vol:4,sat:"Frekuensi",jenis:"Swakelola",paguRK:110000000,realisasi:92791098,realPct:84.36,fisik:42 },
   ];
 
-  const displayFisik = currentIs100 ? 100 : (parseFloat(inputFisikPct) || kegiatan.fisik);
-  const displayReal = parseFloat(inputRealisasiPct) || kegiatan.realisasiPct;
-  // Adendum: cek apakah ada dokumen adendum yang diupload
+  const displayFisik = currentIs100 ? 100 : (parseFloat(currData.fisikPct) || kegiatan.fisik);
+  const displayReal = parseFloat(currData.realisasiPct) || kegiatan.realisasiPct;
   const hasAdendum = !!(docState["adendum_tw1"] || docState["adendum_tw2"] ||
                         docState["adendum_tw3"] || docState["adendum_tw4"]);
 
   return (
     <div>
-      {/* DPA hanya di sini */}
       <div style={{ background:S.surface2,border:`1px solid ${S.border2}`,borderRadius:10,padding:"13px 18px",marginBottom:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap" }}>
         <div style={{ flex:1,minWidth:200 }}>
           <div style={{ fontSize:11,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4 }}>DPA (Dokumen Pelaksanaan Anggaran)</div>
@@ -652,118 +528,108 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
 
       {!terkontrak && <div className="alert alert-warn" style={{ marginBottom:16 }}><AlertTriangle size={14}/><div><strong>Perhatian:</strong> Status belum Terkontrak. Data progres dapat diisi namun kelengkapan dokumen kontrak belum bisa dilengkapi.</div></div>}
 
-      {/* ── INPUT PROGRES PEMDA ── */}
+      {/* INPUT PROGRES PEMDA — REVISI 4: per TW independen + lock */}
       {isPemda && (
-        <div style={{ background:S.surface,border:`1px solid ${isLockedByPrev?"var(--text-dim)":S.border2}`,borderRadius:12,padding:"18px 20px",marginBottom:20,opacity:isLockedByPrev?0.5:1,pointerEvents:isLockedByPrev?"none":"auto" }}>
+        <div style={{ background:S.surface,border:`1px solid ${isInputLocked?"var(--green)":S.border2}`,borderRadius:12,padding:"18px 20px",marginBottom:20 }}>
           <div style={{ fontSize:12,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:14,display:"flex",alignItems:"center",gap:8 }}>
             <TrendingUp size={14} color={S.accent}/> Input Progres {triwulan}
             {isLockedByPrev && <span className="badge badge-green" style={{ marginLeft:8 }}>Auto 100% dari {prevTW}</span>}
-          </div>
-          {/* Layout 2 kolom sesuai format: Progres Keuangan | Progres Fisik */}
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:14 }}>
-            {/* PROGRES KEUANGAN Terhadap Kontrak */}
-            <div style={{ border:`1px solid ${S.border}`,borderRadius:10,overflow:"hidden" }}>
-              <div style={{ background:"var(--surface2)",padding:"8px 14px",textAlign:"center",borderBottom:`1px solid ${S.border}`,fontWeight:700,fontSize:12,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em" }}>
-                PROGRES KEUANGAN
-                <div style={{ fontSize:10,fontWeight:400,color:S.dim }}>Terhadap Kontrak</div>
-              </div>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr" }}>
-                <div style={{ padding:"10px 12px",borderRight:`1px solid ${S.border}` }}>
-                  <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>Rp</div>
-                  <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
-                    <span style={{ color:S.muted,fontSize:11 }}>Rp</span>
-                    <input type="number" min="0"
-                      value={inputRealisasiRP}
-                      onChange={e=>setInputRealisasiRP(e.target.value)}
-                      disabled={isLockedByPrev}
-                      style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:600,flex:1,outline:"none",width:"100%",minWidth:0 }}
-                      placeholder="0"/>
-                  </div>
-                </div>
-                <div style={{ padding:"10px 12px" }}>
-                  <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>%</div>
-                  <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
-                    <input type="number" min="0" max="100" step="0.01"
-                      value={currentIs100?"100":inputRealisasiPct}
-                      onChange={e=>setInputRealisasiPct(e.target.value)}
-                      disabled={isLockedByPrev||currentIs100}
-                      style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:700,flex:1,outline:"none",width:"100%",minWidth:0 }}
-                      placeholder="0.00"/>
-                    <span style={{ color:S.muted,fontSize:11 }}>%</span>
-                  </div>
-                  {inputRealisasiPct && <div style={{ marginTop:4,height:3,background:S.border,borderRadius:99,overflow:"hidden" }}><div style={{ width:`${Math.min(parseFloat(inputRealisasiPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(inputRealisasiPct)||0) }}/></div>}
-                </div>
-              </div>
-            </div>
-            {/* PROGRES FISIK Terhadap Kontrak */}
-            <div style={{ border:`1px solid ${S.border}`,borderRadius:10,overflow:"hidden" }}>
-              <div style={{ background:"var(--surface2)",padding:"8px 14px",textAlign:"center",borderBottom:`1px solid ${S.border}`,fontWeight:700,fontSize:12,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em" }}>
-                PROGRES FISIK
-                <div style={{ fontSize:10,fontWeight:400,color:S.dim }}>Terhadap Kontrak</div>
-              </div>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr" }}>
-                <div style={{ padding:"10px 12px",borderRight:`1px solid ${S.border}` }}>
-                  <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>Km</div>
-                  <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
-                    <input type="number" min="0" step="0.001"
-                      value={inputFisikKm}
-                      onChange={e=>setInputFisikKm(e.target.value)}
-                      disabled={isLockedByPrev}
-                      style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:600,flex:1,outline:"none",width:"100%",minWidth:0 }}
-                      placeholder="0.000"/>
-                    <span style={{ color:S.muted,fontSize:11 }}>km</span>
-                  </div>
-                </div>
-                <div style={{ padding:"10px 12px" }}>
-                  <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>%</div>
-                  <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
-                    <input type="number" min="0" max="100" step="0.01"
-                      value={currentIs100?"100":inputFisikPct}
-                      onChange={e=>setInputFisikPct(e.target.value)}
-                      disabled={isLockedByPrev||currentIs100}
-                      style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:700,flex:1,outline:"none",width:"100%",minWidth:0 }}
-                      placeholder="0.00"/>
-                    <span style={{ color:S.muted,fontSize:11 }}>%</span>
-                  </div>
-                  {inputFisikPct && <div style={{ marginTop:4,height:3,background:S.border,borderRadius:99,overflow:"hidden" }}><div style={{ width:`${Math.min(parseFloat(inputFisikPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(inputFisikPct)||0) }}/></div>}
-                </div>
-              </div>
-            </div>
+            {lockedTW[triwulan] && !isLockedByPrev && <span className="badge badge-green" style={{ marginLeft:8 }}>✓ Tersimpan</span>}
           </div>
 
-          {/* Cek pekerjaan fisik 100% (TW2-4) */}
-          {showFisik100Check && (
-            <div style={{ background:currentIs100?"var(--green-bg)":"var(--surface2)",border:`1px solid ${currentIs100?"var(--green)":S.border}`,borderRadius:8,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:12 }}>
-              <div
-                style={{ width:24,height:24,borderRadius:7,background:currentIs100?"var(--green-bg)":"transparent",border:`2px solid ${currentIs100?"var(--green)":S.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:isLockedByPrev?"default":"pointer",flexShrink:0,transition:"all 0.2s" }}
-                onClick={()=>!isLockedByPrev&&onFisik100Change(triwulan,!currentIs100)}
-              >
-                {currentIs100 && <CheckCircle size={15} color="var(--green-light)"/>}
-              </div>
-              <div>
-                <div style={{ fontWeight:700,fontSize:13,color:currentIs100?"var(--green-light)":S.text }}>
-                  Pekerjaan Fisik Telah 100%
-                </div>
-                <div style={{ fontSize:11,color:S.muted }}>
-                  {isLockedByPrev
-                    ? `Otomatis tercentang karena ${prevTW} sudah 100%`
-                    : "Centang jika progres fisik sudah mencapai 100%. Akan otomatis mengunci TW berikutnya."}
-                </div>
-              </div>
-              {isLockedByPrev && <span className="badge badge-green" style={{ marginLeft:"auto",flexShrink:0 }}>Auto dari {prevTW}</span>}
+          {isInputLocked && !isLockedByPrev && (
+            <div style={{ display:"flex",justifyContent:"flex-end",marginBottom:12 }}>
+              <button className="btn btn-outline btn-xs" onClick={handleBukaTW}><Edit3 size={11}/> Buka Kunci Edit</button>
             </div>
           )}
 
-          <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
-            {savedProgres && <span style={{ fontSize:12,color:S.green,display:"flex",alignItems:"center",gap:5 }}><CheckCircle size={13}/> Tersimpan</span>}
-            <button className="btn btn-primary btn-sm" onClick={()=>setSavedProgres(true)}>
-              <CheckCircle size={13}/> Simpan Progres
-            </button>
+          <div style={{ opacity:isInputLocked?0.6:1, pointerEvents:isInputLocked?"none":"auto" }}>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:14 }}>
+              {/* PROGRES KEUANGAN */}
+              <div style={{ border:`1px solid ${S.border}`,borderRadius:10,overflow:"hidden" }}>
+                <div style={{ background:"var(--surface2)",padding:"8px 14px",textAlign:"center",borderBottom:`1px solid ${S.border}`,fontWeight:700,fontSize:12,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em" }}>
+                  PROGRES KEUANGAN
+                  <div style={{ fontSize:10,fontWeight:400,color:S.dim }}>Terhadap Kontrak</div>
+                </div>
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr" }}>
+                  <div style={{ padding:"10px 12px",borderRight:`1px solid ${S.border}` }}>
+                    <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>Rp</div>
+                    <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
+                      <span style={{ color:S.muted,fontSize:11 }}>Rp</span>
+                      <input type="number" min="0" value={currData.realisasiRP} onChange={e=>setField("realisasiRP",e.target.value)}
+                        style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:600,flex:1,outline:"none",width:"100%",minWidth:0 }} placeholder="0"/>
+                    </div>
+                  </div>
+                  <div style={{ padding:"10px 12px" }}>
+                    <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>%</div>
+                    <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
+                      <input type="number" min="0" max="100" step="0.01"
+                        value={currentIs100?"100":currData.realisasiPct} onChange={e=>setField("realisasiPct",e.target.value)}
+                        disabled={currentIs100}
+                        style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:700,flex:1,outline:"none",width:"100%",minWidth:0 }} placeholder="0.00"/>
+                      <span style={{ color:S.muted,fontSize:11 }}>%</span>
+                    </div>
+                    {currData.realisasiPct && <div style={{ marginTop:4,height:3,background:S.border,borderRadius:99,overflow:"hidden" }}><div style={{ width:`${Math.min(parseFloat(currData.realisasiPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(currData.realisasiPct)||0) }}/></div>}
+                  </div>
+                </div>
+              </div>
+              {/* PROGRES FISIK */}
+              <div style={{ border:`1px solid ${S.border}`,borderRadius:10,overflow:"hidden" }}>
+                <div style={{ background:"var(--surface2)",padding:"8px 14px",textAlign:"center",borderBottom:`1px solid ${S.border}`,fontWeight:700,fontSize:12,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em" }}>
+                  PROGRES FISIK
+                  <div style={{ fontSize:10,fontWeight:400,color:S.dim }}>Terhadap Kontrak</div>
+                </div>
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr" }}>
+                  <div style={{ padding:"10px 12px",borderRight:`1px solid ${S.border}` }}>
+                    <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>Km</div>
+                    <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
+                      <input type="number" min="0" step="0.001" value={currData.fisikKm} onChange={e=>setField("fisikKm",e.target.value)}
+                        style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:600,flex:1,outline:"none",width:"100%",minWidth:0 }} placeholder="0.000"/>
+                      <span style={{ color:S.muted,fontSize:11 }}>km</span>
+                    </div>
+                  </div>
+                  <div style={{ padding:"10px 12px" }}>
+                    <div style={{ fontSize:10,color:S.muted,marginBottom:4,fontWeight:600 }}>%</div>
+                    <div style={{ display:"flex",alignItems:"center",gap:4,background:S.surface2,border:`1px solid ${S.border}`,borderRadius:6,padding:"6px 10px" }}>
+                      <input type="number" min="0" max="100" step="0.01"
+                        value={currentIs100?"100":currData.fisikPct} onChange={e=>setField("fisikPct",e.target.value)}
+                        disabled={currentIs100}
+                        style={{ background:"none",border:"none",color:S.text,fontSize:14,fontWeight:700,flex:1,outline:"none",width:"100%",minWidth:0 }} placeholder="0.00"/>
+                      <span style={{ color:S.muted,fontSize:11 }}>%</span>
+                    </div>
+                    {currData.fisikPct && <div style={{ marginTop:4,height:3,background:S.border,borderRadius:99,overflow:"hidden" }}><div style={{ width:`${Math.min(parseFloat(currData.fisikPct)||0,100)}%`,height:"100%",background:getColor(parseFloat(currData.fisikPct)||0) }}/></div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {showFisik100Check && (
+              <div style={{ background:currentIs100?"var(--green-bg)":"var(--surface2)",border:`1px solid ${currentIs100?"var(--green)":S.border}`,borderRadius:8,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:12 }}>
+                <div style={{ width:24,height:24,borderRadius:7,background:currentIs100?"var(--green-bg)":"transparent",border:`2px solid ${currentIs100?"var(--green)":S.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all 0.2s" }}
+                  onClick={()=>!isLockedByPrev&&onFisik100Change(triwulan,!currentIs100)}>
+                  {currentIs100 && <CheckCircle size={15} color="var(--green-light)"/>}
+                </div>
+                <div>
+                  <div style={{ fontWeight:700,fontSize:13,color:currentIs100?"var(--green-light)":S.text }}>Pekerjaan Fisik Telah 100%</div>
+                  <div style={{ fontSize:11,color:S.muted }}>
+                    {isLockedByPrev ? `Otomatis tercentang karena ${prevTW} sudah 100%` : "Centang jika progres fisik sudah mencapai 100%"}
+                  </div>
+                </div>
+                {isLockedByPrev && <span className="badge badge-green" style={{ marginLeft:"auto",flexShrink:0 }}>Auto dari {prevTW}</span>}
+              </div>
+            )}
           </div>
+
+          {!isInputLocked && (
+            <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
+              <button className="btn btn-primary btn-sm" onClick={handleSimpanProgres}>
+                <CheckCircle size={13}/> Simpan &amp; Kunci {triwulan}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Jika locked karena TW sebelumnya sudah 100% */}
       {isPemda && isLockedByPrev && (
         <div className="alert alert-info" style={{ marginBottom:16 }}>
           <Info size={14}/>
@@ -800,7 +666,6 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
             </thead>
             <tbody>
               <tr><td colSpan={14} style={{ fontWeight:700,fontSize:11,color:S.green,background:"rgba(46,160,67,0.07)",padding:"7px 14px" }}>KEGIATAN FISIK</td></tr>
-              <tr><td colSpan={14} style={{ fontWeight:700,fontSize:11,color:S.green,background:"rgba(46,160,67,0.07)",padding:"7px 14px" }}>KEGIATAN FISIK</td></tr>
               <tr>
                 <td>1</td>
                 <td style={{ maxWidth:260,fontSize:12,lineHeight:1.6,fontWeight:600 }}>{kegiatan.nama}</td>
@@ -808,24 +673,19 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
                 <td><span className="badge badge-blue">{kegiatan.pengadaan}</span></td>
                 <td className="right">{formatRupiah(kegiatan.paguRK)}</td>
                 <td className="right">{formatRupiah(kegiatan.nilaiKontrak)}</td>
-                <td className="right">{inputRealisasiRP ? formatRupiah(parseInt(inputRealisasiRP)) : formatRupiah(kegiatan.realisasiRP)}</td>
-                {/* Progres Keuangan: Rp */}
+                <td className="right">{currData.realisasiRP ? formatRupiah(parseInt(currData.realisasiRP)) : formatRupiah(kegiatan.realisasiRP)}</td>
                 <td className="right" style={{ background:"rgba(26,127,224,0.05)",fontFamily:"'DM Mono',monospace",fontSize:11 }}>
-                  {inputRealisasiRP ? formatRupiah(parseInt(inputRealisasiRP)) : formatRupiah(kegiatan.realisasiRP)}
+                  {currData.realisasiRP ? formatRupiah(parseInt(currData.realisasiRP)) : formatRupiah(kegiatan.realisasiRP)}
                 </td>
-                {/* Progres Keuangan: % */}
                 <td className="center" style={{ background:"rgba(26,127,224,0.05)",fontWeight:700,color:getColor(displayReal) }}>
                   {displayReal.toFixed(2)}%
                 </td>
-                {/* Progres Fisik: Km */}
                 <td className="center" style={{ background:"rgba(46,160,67,0.05)",fontFamily:"'DM Mono',monospace",fontSize:11 }}>
-                  {inputFisikKm || kegiatan.volume}
+                  {currData.fisikKm || kegiatan.volume}
                 </td>
-                {/* Progres Fisik: % */}
                 <td className="center" style={{ background:"rgba(46,160,67,0.05)",fontWeight:700,color:getColor(displayFisik) }}>
                   {displayFisik}%
                 </td>
-                {/* Foto gabungan - 0%, 50%, 100% */}
                 <td className="center">
                   <div style={{ display:"flex",gap:4,justifyContent:"center" }}>
                     {["foto_0","foto_50","foto_100"].map(fid=>(
@@ -844,9 +704,7 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
                           </div>
                         ) : isPemda ? (
                           <button className="btn btn-primary btn-xs" style={{ fontSize:9,padding:"2px 4px" }}
-                            onClick={()=>setFotoInProgres(s=>({...s,[fid]:{...s[fid],uploaded:true}}))}>
-                            <Upload size={9}/>
-                          </button>
+                            onClick={()=>setFotoInProgres(s=>({...s,[fid]:{...s[fid],uploaded:true}}))}><Upload size={9}/></button>
                         ) : <span style={{ fontSize:10,color:S.dim }}>-</span>}
                       </div>
                     ))}
@@ -872,35 +730,28 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
                 <td colSpan={5} style={{ textAlign:"right",fontWeight:800,textTransform:"uppercase",fontSize:12 }}>TOTAL</td>
                 <td className="right" style={{ fontWeight:800 }}>12.616.765.000</td>
                 <td className="right" style={{ fontWeight:800 }}>12.212.272.000</td>
-                <td className="right" style={{ fontWeight:800 }}>{inputRealisasiRP ? formatRupiah(parseInt(inputRealisasiRP)) : "12.307.367.098"}</td>
-                <td className="right" style={{ fontWeight:800,color:getColor(displayReal),background:"rgba(26,127,224,0.05)" }}>{inputRealisasiRP ? formatRupiah(parseInt(inputRealisasiRP)) : "12.307.367.098"}</td>
+                <td className="right" style={{ fontWeight:800 }}>{currData.realisasiRP ? formatRupiah(parseInt(currData.realisasiRP)) : "12.307.367.098"}</td>
+                <td className="right" style={{ fontWeight:800,color:getColor(displayReal),background:"rgba(26,127,224,0.05)" }}>{currData.realisasiRP ? formatRupiah(parseInt(currData.realisasiRP)) : "12.307.367.098"}</td>
                 <td className="center" style={{ fontWeight:800,color:getColor(displayReal),background:"rgba(26,127,224,0.05)" }}>{displayReal.toFixed(2)}%</td>
-                <td className="center" style={{ fontWeight:800,background:"rgba(46,160,67,0.05)" }}>{inputFisikKm||kegiatan.volume}</td>
+                <td className="center" style={{ fontWeight:800,background:"rgba(46,160,67,0.05)" }}>{currData.fisikKm||kegiatan.volume}</td>
                 <td className="center" style={{ fontWeight:800,color:getColor(displayFisik),background:"rgba(46,160,67,0.05)" }}>{displayFisik}%</td>
                 <td/>
               </tr>
             </tbody>
           </table>
         </div>
-        {/* Keterangan kolom foto */}
-        <div style={{ display:"flex",gap:16,padding:"8px 14px",borderTop:`1px solid ${S.border2}`,background:S.surface2,fontSize:11,color:S.muted,flexWrap:"wrap" }}>
-          <span>📷 <strong style={{ color:S.text }}>Foto 0%</strong> = Progres awal</span>
-          <span>📷 <strong style={{ color:S.text }}>Foto 50%</strong> = Progres tengah</span>
-          <span>📷 <strong style={{ color:S.text }}>Foto 100%</strong> = Progres selesai</span>
-          <span style={{ marginLeft:"auto",fontStyle:"italic" }}>Mode PEMDA: klik <Upload size={9}/> untuk upload · Mode Pusat: klik <Eye size={9}/> untuk lihat</span>
-        </div>
       </div>
 
-      {/* Upload bukti progres */}
+      {/* REVISI 5: label ganti */}
       <div className="detail-card">
         <div className="detail-card-header">
-          <span style={{ fontWeight:700,fontSize:13 }}>Upload Bukti Progres Keuangan &amp; Fisik</span>
+          <span style={{ fontWeight:700,fontSize:13 }}>Upload Bukti Aktual Saat Ini</span>
           {progresState.uploaded&&<span className={`badge ${progresState.verifiedPFID?"badge-green":"badge-yellow"}`}>{progresState.verifiedPFID?"v Terverifikasi":"⏳ Menunggu Verifikasi"}</span>}
         </div>
         <div style={{ padding:16,display:"flex",gap:12,alignItems:"center" }}>
-          <div style={{ flex:1,fontSize:12,color:S.muted }}>Upload laporan/bukti realisasi keuangan dan fisik per {triwulan}. Format: Excel atau PDF.</div>
+          <div style={{ flex:1,fontSize:12,color:S.muted }}>Upload bukti realisasi keuangan dan fisik aktual saat ini per {triwulan}. Format: Excel atau PDF.</div>
           <div style={{ display:"flex",gap:8 }}>
-            {progresState.uploaded&&<button className="btn btn-outline btn-sm" onClick={()=>setPreviewModal({label:"Bukti Progres Keuangan & Fisik",type:"excel"})}><Eye size={12}/> Lihat</button>}
+            {progresState.uploaded&&<button className="btn btn-outline btn-sm" onClick={()=>setPreviewModal({label:"Bukti Aktual Saat Ini",type:"excel"})}><Eye size={12}/> Lihat</button>}
             {isPemda&&!progresState.uploaded&&<button className="btn btn-primary btn-sm" onClick={()=>setProgresModal(true)}><Upload size={12}/> Upload Bukti</button>}
             {isPemda&&progresState.uploaded&&<button className="btn btn-warn btn-sm" onClick={()=>setProgresModal(true)}><Upload size={12}/> Ganti</button>}
             {!isPemda&&progresState.uploaded&&!progresState.verifiedPFID&&(
@@ -911,7 +762,7 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
           </div>
         </div>
       </div>
-      {progresModal&&<UploadModal label="Bukti Progres Keuangan & Fisik" onClose={()=>setProgresModal(false)}
+      {progresModal&&<UploadModal label="Bukti Aktual Saat Ini" onClose={()=>setProgresModal(false)}
         onConfirm={()=>{ onDocChange(progresDocId,{ uploaded:true,verifiedPFID:false,catatan:"" }); setProgresModal(false); }}/>}
       {previewModal&&<PreviewModal label={previewModal.label} type={previewModal.type} onClose={()=>setPreviewModal(null)}/>}
     </div>
@@ -920,20 +771,14 @@ function TabDataProgres({ isPemda, terkontrak, triwulan, kegiatan, docState, onD
 
 /* ════════════════════════════════════════════
    TAB: FOTO KEGIATAN
+   REVISI 6: hapus ceklist kelengkapan foto (META_FIELDS),
+             PDF TW4 jadi wajib, video label ganti
 ════════════════════════════════════════════ */
-const META_FIELDS = [
-  { id:"logo_pu", label:"Logo PU terpasang" },
-  { id:"logo_pemda", label:"Logo Pemda terpasang" },
-  { id:"ket_lokasi", label:"Keterangan lokasi" },
-  { id:"ket_sta", label:"Keterangan STA" },
-  { id:"ket_progres", label:"Keterangan progres" },
-];
-
 function TabFotoKegiatan({ isPemda, triwulan, kegiatan }) {
   const [fotoState, setFotoState] = useState({
-    foto_0:{ uploaded:false,tanggal:"",meta:{},verified:false,catatan:"" },
-    foto_50:{ uploaded:false,tanggal:"",meta:{},verified:false,catatan:"" },
-    foto_100:{ uploaded:false,tanggal:"",meta:{},verified:false,catatan:"" },
+    foto_0:{ uploaded:false,tanggal:"",verified:false,catatan:"" },
+    foto_50:{ uploaded:false,tanggal:"",verified:false,catatan:"" },
+    foto_100:{ uploaded:false,tanggal:"",verified:false,catatan:"" },
   });
   const [pdfState, setPdfState] = useState({ pdf_0:{ uploaded:false },pdf_50:{ uploaded:false },pdf_100:{ uploaded:false } });
   const [videoLink, setVideoLink] = useState("");
@@ -942,22 +787,25 @@ function TabFotoKegiatan({ isPemda, triwulan, kegiatan }) {
   const [videoModal, setVideoModal] = useState(false);
   function setFoto(id,patch){ setFotoState(s=>({ ...s,[id]:{ ...s[id],...patch } })); }
   function setPdf(id,patch){ setPdfState(s=>({ ...s,[id]:{ ...s[id],...patch } })); }
+
+  // PDF slot per TW: TW4 wajib, lainnya tidak wajib
+  const pdfWajib = triwulan === "TW4";
+
   return (
     <div>
       <div className="alert alert-info" style={{ marginBottom:16 }}>
         <Info size={14}/>
-        Setiap foto wajib memuat: <strong>logo PU * logo Pemda * keterangan lokasi * keterangan STA * keterangan progres * tanggal kegiatan</strong>
+        Setiap foto wajib memuat: <strong>logo PU · logo Pemda · keterangan lokasi · keterangan STA · keterangan progres · tanggal kegiatan</strong>
       </div>
       <div className="table-wrap" style={{ marginBottom:20 }}>
         <div className="table-header"><span className="table-title"><Camera size={14} style={{ color:S.accent }}/> Foto Kegiatan  -  {triwulan}</span></div>
         <div style={{ padding:20 }}>
           <div style={{ background:S.surface2,border:`1px solid var(--green)`,borderRadius:8,padding:"8px 14px",marginBottom:18,fontSize:12,color:S.green,fontWeight:600 }}>
-            Ruas: {kegiatan.ruas} * Kecamatan: {kegiatan.kecamatan} * Desa: {kegiatan.desa}
+            Ruas: {kegiatan.ruas} · Kecamatan: {kegiatan.kecamatan} · Desa: {kegiatan.desa}
           </div>
           <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16 }}>
             {FOTO_SLOTS.map(slot=>{
               const st = fotoState[slot.id];
-              const metaDone = Object.values(st.meta||{}).filter(Boolean).length;
               return (
                 <div key={slot.id} style={{ border:`2px solid ${st.uploaded?(st.verified?"var(--green)":"var(--yellow)"):S.border}`,borderRadius:12,overflow:"hidden",background:S.surface2 }}>
                   <div style={{ padding:"10px 14px",background:st.uploaded?(st.verified?"var(--green-bg)":"var(--yellow-bg)"):S.surface2,display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${S.border2}` }}>
@@ -965,43 +813,24 @@ function TabFotoKegiatan({ isPemda, triwulan, kegiatan }) {
                     <span style={{ fontSize:10,fontWeight:700,background:"var(--red-bg)",color:S.red,padding:"2px 7px",borderRadius:99 }}>WAJIB</span>
                   </div>
                   {st.uploaded ? (
-                    <div style={{ height:120,background:"linear-gradient(135deg,#1a3a2a 0%,#0d1f16 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6 }}>
+                    <div style={{ height:100,background:"linear-gradient(135deg,#1a3a2a 0%,#0d1f16 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6 }}>
                       <Camera size={28} color={S.green} opacity={0.6}/>
                       <span style={{ fontSize:11,color:S.green }}>Foto terupload</span>
-                      {st.tanggal&&<span style={{ fontSize:10,color:S.muted,fontFamily:"'DM Mono',monospace" }}>{st.tanggal}</span>}
+                      {st.tanggal&&<span style={{ fontSize:10,color:S.muted,fontFamily:"'DM Mono',monospace" }}>{fmtTgl(st.tanggal)}</span>}
                     </div>
                   ) : (
-                    <div style={{ height:120,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,opacity:0.5 }}>
+                    <div style={{ height:100,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,opacity:0.5 }}>
                       <Camera size={26} color={S.muted}/><span style={{ fontSize:11,color:S.muted }}>Belum ada foto</span>
                     </div>
                   )}
-                  {/* Meta checklist */}
+                  {/* Tanggal kegiatan — pakai date picker */}
                   <div style={{ padding:"10px 14px",borderTop:`1px solid ${S.border2}` }}>
-                    <div style={{ fontSize:10,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6 }}>
-                      Kelengkapan Foto ({metaDone}/{META_FIELDS.length})
-                    </div>
-                    {META_FIELDS.map(f=>{
-                      const ok=st.meta?.[f.id];
-                      return (
-                        <div key={f.id} style={{ display:"flex",alignItems:"center",gap:6,marginBottom:4,cursor:isPemda?"pointer":"default" }}
-                          onClick={()=>isPemda&&setFoto(slot.id,{ meta:{ ...st.meta,[f.id]:!ok } })}>
-                          <div style={{ width:15,height:15,borderRadius:4,flexShrink:0,background:ok?"var(--green-bg)":"transparent",border:`1.5px solid ${ok?"var(--green)":S.border}`,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                            {ok&&<CheckCircle size={10} color={S.green}/>}
-                          </div>
-                          <span style={{ fontSize:10,color:ok?S.text:S.muted }}>{f.label}</span>
-                        </div>
-                      );
-                    })}
-                    {/* Tanggal */}
-                    <div style={{ marginTop:8 }}>
-                      <div style={{ fontSize:10,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:4 }}>Tanggal Kegiatan</div>
-                      {isPemda ? (
-                        <input type="date" value={st.tanggal} onChange={e=>setFoto(slot.id,{ tanggal:e.target.value })}
-                          style={{ width:"100%",background:S.surface,border:`1px solid ${S.border}`,borderRadius:6,color:S.text,padding:"5px 8px",fontSize:11 }}/>
-                      ) : <span style={{ fontSize:11,color:S.muted,fontFamily:"'DM Mono',monospace" }}>{st.tanggal||"-"}</span>}
-                    </div>
+                    <div style={{ fontSize:10,fontWeight:700,color:S.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:5 }}>Tanggal Kegiatan</div>
+                    {isPemda ? (
+                      <input type="date" value={st.tanggal} onChange={e=>setFoto(slot.id,{ tanggal:e.target.value })}
+                        style={{ width:"100%",background:S.surface,border:`1px solid ${S.border}`,borderRadius:6,color:S.text,padding:"5px 8px",fontSize:11,colorScheme:"dark" }}/>
+                    ) : <span style={{ fontSize:11,color:S.muted,fontFamily:"'DM Mono',monospace" }}>{fmtTgl(st.tanggal)||"-"}</span>}
                   </div>
-                  {/* Actions */}
                   <div style={{ padding:"10px 14px",borderTop:`1px solid ${S.border2}`,display:"flex",gap:6,justifyContent:"space-between",alignItems:"center" }}>
                     <div style={{ display:"flex",gap:6 }}>
                       {st.uploaded&&<button className="btn btn-outline btn-xs"><Eye size={11}/> Lihat</button>}
@@ -1022,17 +851,21 @@ function TabFotoKegiatan({ isPemda, triwulan, kegiatan }) {
           </div>
         </div>
       </div>
-      {/* PDF dokumentasi (tidak wajib) */}
+
+      {/* REVISI 6: PDF TW4 wajib, lainnya tidak wajib */}
       <div className="table-wrap" style={{ marginBottom:20 }}>
         <div className="table-header">
-          <span className="table-title"><FileText size={14} style={{ color:S.accent }}/> Dokumentasi PDF (Tidak Wajib)</span>
+          <span className="table-title">
+            <FileText size={14} style={{ color:S.accent }}/> Dokumentasi PDF {pdfWajib ? <span style={{ color:S.red,marginLeft:6,fontSize:11 }}>— Wajib</span> : <span style={{ color:S.muted,marginLeft:6,fontSize:11 }}>— Tidak Wajib</span>}
+          </span>
         </div>
         <div style={{ padding:16,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12 }}>
           {PDF_DOK_SLOTS.map(pdf=>{
             const ps=pdfState[pdf.id];
             return (
               <div key={pdf.id} style={{ background:S.surface2,border:`1px solid ${ps.uploaded?S.border:S.border2}`,borderRadius:8,padding:14 }}>
-                <div style={{ fontSize:11,fontWeight:700,color:S.muted,marginBottom:8 }}>{pdf.label}</div>
+                <div style={{ fontSize:11,fontWeight:700,color:S.muted,marginBottom:4 }}>{pdf.label}</div>
+                {pdfWajib && <div style={{ fontSize:10,color:S.red,fontWeight:700,marginBottom:8 }}>WAJIB</div>}
                 {ps.uploaded ? (
                   <div style={{ display:"flex",gap:6,alignItems:"center",flexWrap:"wrap" }}>
                     <span className="badge badge-green" style={{ fontSize:10 }}>v Terupload</span>
@@ -1050,17 +883,18 @@ function TabFotoKegiatan({ isPemda, triwulan, kegiatan }) {
           })}
         </div>
       </div>
-      {/* TW4: link video */}
+
+      {/* REVISI 6: Video label ganti */}
       {triwulan==="TW4"&&(
         <div className="detail-card">
           <div className="detail-card-header">
             <span style={{ fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:8 }}>
-              <Play size={14} color={S.accent}/> Validasi Video Hasil Penanganan 100%  -  TW4
+              <Play size={14} color={S.accent}/> Video Ruas yang Ditangani  -  TW4
             </span>
             {videoLink&&<span className={`badge ${videoVerified?"badge-green":"badge-yellow"}`}>{videoVerified?"v Tervalidasi":"⏳ Menunggu Validasi"}</span>}
           </div>
           <div style={{ padding:16 }}>
-            <div style={{ fontSize:12,color:S.muted,marginBottom:12 }}>Video PKRMS sangat dianjurkan. Link YouTube, Google Drive, atau platform lainnya.</div>
+            <div style={{ fontSize:12,color:S.muted,marginBottom:12 }}>Upload atau masukkan link video ruas yang ditangani. Link YouTube, Google Drive, atau platform lainnya.</div>
             {videoLink ? (
               <div style={{ display:"flex",gap:10,alignItems:"center",flexWrap:"wrap" }}>
                 <div style={{ background:S.surface2,border:`1px solid ${S.border2}`,borderRadius:8,padding:"9px 14px",display:"flex",gap:8,alignItems:"center",flex:1 }}>
@@ -1149,20 +983,6 @@ function TabRealisasiOutput({ kegiatan, isPemda }) {
                 </td>
                 <td className="center"><CrosscheckBtn uploaded verifiedPFID={verifikasi} isPemda={isPemda} catatan={catatan} onVerify={()=>setVerifikasi(true)} onReject={c=>setCatatan(c)} small/></td>
               </tr>
-              <tr style={{ background:"rgba(255,213,40,0.04)" }}>
-                <td colSpan={4}/><td style={{ fontSize:11 }}>Peningkatan/Rekonstruksi</td>
-                <td style={{ background:"var(--yellow-bg)",textAlign:"center",fontWeight:700,fontSize:11,color:S.yellow }}>AC WC</td>
-                <td style={{ background:"var(--yellow-bg)",textAlign:"center",fontWeight:700,fontSize:11,color:S.yellow }}>AC WC</td>
-                <td className="right">1.50</td><td>km</td>
-                <td style={{ background:"var(--yellow-bg)",textAlign:"center",fontWeight:700,fontSize:11,color:S.yellow }}>AC WC</td>
-                <td className="right" style={{ background:"var(--yellow-bg)",fontWeight:700,color:S.yellow }}>1.50</td>
-                <td colSpan={8}></td>
-              </tr>
-              <tr style={{ background:S.surface2 }}>
-                <td colSpan={7} style={{ textAlign:"right",fontWeight:800,textTransform:"uppercase",fontSize:12 }}>Total Jalan</td>
-                <td className="right" style={{ fontWeight:800 }}>1.50</td><td></td><td></td>
-                <td className="right" style={{ fontWeight:800 }}>1.50</td><td colSpan={8}></td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -1187,26 +1007,19 @@ function TabRealisasiOutput({ kegiatan, isPemda }) {
 
 /* ════════════════════════════════════════════
    TAB: KELENGKAPAN DOKUMEN
-   - TW1: tidak ada update_kurva_s
-   - TW2-4: ada cek 100% fisik, jika 100% di TW sebelumnya → TW selanjutnya locked + auto-centang
-   - Setelah centang 100%: muncul dokumen PHO, BAST, BA Teknis
-   - Laporan Word + WA
+   REVISI 1: dokumen Persiapan selalu tampil
+             meski status langsung PBJ
 ════════════════════════════════════════════ */
 function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docState, onDocChange, fisik100PerTW, onFisik100Change, statusPengadaan }) {
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportDone, setReportDone] = useState(false);
 
   const docs = DOCS_KELENGKAPAN_PER_TW[triwulan] || [];
-  // Cek apakah TW sebelumnya sudah 100%
   const prevTWMap = { TW2:"TW1", TW3:"TW2", TW4:"TW3" };
   const prevTW = prevTWMap[triwulan];
   const prevIs100 = prevTW ? !!fisik100PerTW[prevTW] : false;
   const currentIs100 = !!fisik100PerTW[triwulan];
-
-  // Jika TW sebelumnya sudah 100%, TW ini hanya tampilkan status centang + locked
   const isLockedByPrev = (triwulan !== "TW1") && prevIs100;
-
-  // Dokumen PHO hanya muncul setelah centang 100%
   const showPHO = currentIs100;
 
   const allDocsForReport = [...docs, ...(showPHO ? DOCS_PHO : [])];
@@ -1226,119 +1039,33 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
   function handleGenerateWord() {
     setGeneratingReport(true);
     try {
-      var snDocs    = allDocsForReport.slice();
-      var snNotOk   = notOk.slice();
-      var snState   = docState;
-      var namaOPD   = (pemda_info && pemda_info.namaOPD)  ? pemda_info.namaOPD  : (pemda || "-");
-      var tanggal   = new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"});
-
-      var tableRows = snDocs.map(function(doc, i) {
-        var st       = snState[doc.id] || {};
-        var wajib    = doc.required ? "Ya" : "Tidak";
-        var status   = st.verifiedPFID ? "Terverifikasi" : st.uploaded ? "Menunggu Verif" : "Belum Upload";
-        var bg       = st.verifiedPFID ? "#c6efce" : st.uploaded ? "#ffeb9c" : "#ffc7ce";
-        var catatan  = st.catatan || "-";
-        return "<tr>"
-          + "<td style='border:1px solid #000;padding:5px 8px;text-align:center'>"+(i+1)+"</td>"
-          + "<td style='border:1px solid #000;padding:5px 8px'>"+doc.label+"</td>"
-          + "<td style='border:1px solid #000;padding:5px 8px;text-align:center;font-weight:bold'>"+wajib+"</td>"
-          + "<td style='border:1px solid #000;padding:5px 8px;text-align:center;background:"+bg+";font-weight:bold'>"+status+"</td>"
-          + "<td style='border:1px solid #000;padding:5px 8px'>"+catatan+"</td></tr>";
+      var snDocs=allDocsForReport.slice(), snNotOk=notOk.slice(), snState=docState;
+      var namaOPD=(pemda_info&&pemda_info.namaOPD)?pemda_info.namaOPD:(pemda||"-");
+      var tanggal=new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"});
+      var tableRows=snDocs.map(function(doc,i){
+        var st=snState[doc.id]||{}, wajib=doc.required?"Ya":"Tidak";
+        var status=st.verifiedPFID?"Terverifikasi":st.uploaded?"Menunggu Verif":"Belum Upload";
+        var bg=st.verifiedPFID?"#c6efce":st.uploaded?"#ffeb9c":"#ffc7ce";
+        return "<tr><td style='border:1px solid #000;padding:5px 8px;text-align:center'>"+(i+1)+"</td><td style='border:1px solid #000;padding:5px 8px'>"+doc.label+"</td><td style='border:1px solid #000;padding:5px 8px;text-align:center;font-weight:bold'>"+wajib+"</td><td style='border:1px solid #000;padding:5px 8px;text-align:center;background:"+bg+";font-weight:bold'>"+status+"</td><td style='border:1px solid #000;padding:5px 8px'>"+(st.catatan||"-")+"</td></tr>";
       }).join("");
-
-      var totalDok = snDocs.length;
-      var uploaded = snDocs.filter(function(d){ return (snState[d.id]||{}).uploaded; }).length;
-      var verified = snDocs.filter(function(d){ return (snState[d.id]||{}).verifiedPFID; }).length;
-      var belumOk  = snNotOk.length;
-
-      var tindakList = belumOk === 0
-        ? "<p style='color:#375623'>Seluruh dokumen telah sesuai dan lengkap.</p>"
-        : "<ul style='margin:4pt 0 0 0'>" + snNotOk.map(function(doc){
-            var st  = snState[doc.id] || {};
-            var ket = st.catatan ? " &mdash; " + st.catatan : "";
-            var ext = !st.uploaded ? " (belum diunggah)" : " (menunggu verifikasi PFID)";
-            return "<li style='margin-bottom:4pt'>"+doc.label+ket+ext+"</li>";
-          }).join("") + "</ul>";
-
-      var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-        + "<style>body{font-family:Arial,sans-serif;font-size:11pt;margin:2.5cm 2cm;color:#000}"
-        + "h1{font-size:13pt;text-align:center;margin:0 0 2pt 0}"
-        + "h2{font-size:11pt;margin:14pt 0 6pt 0}"
-        + ".kop{text-align:center;margin-bottom:14pt;border-bottom:3px double #000;padding-bottom:10pt}"
-        + "table{border-collapse:collapse;width:100%}"
-        + "th{border:1px solid #000;padding:5px 8px;background:#1F4E79;color:#fff;font-size:10pt;text-align:center}"
-        + "td{font-size:10pt}"
-        + ".it td{border:none;padding:2pt 6pt;vertical-align:top}"
-        + ".it .lb{width:120pt;font-weight:bold}.it .sp{width:10pt;text-align:center}"
-        + ".section{margin-top:14pt}"
-        + ".footer-note{font-style:italic;font-size:9.5pt;margin-top:10pt;border-top:1px solid #ccc;padding-top:6pt}"
-        + "</style></head><body>"
-        + "<div class='kop'>"
-        + "<h1>KEMENTERIAN PEKERJAAN UMUM</h1>"
-        + "<h1>SEKRETARIAT JENDERAL</h1>"
-        + "<h1>PUSAT FASILITASI INFRASTRUKTUR DAERAH (PFID)</h1>"
-        + "<p style='font-size:13pt;font-weight:bold;margin-top:6pt'>LAPORAN HASIL VERIFIKASI DOKUMEN</p>"
-        + "<p style='font-size:12pt;font-weight:bold'>DAK BIDANG JALAN &mdash; "+triwulan.toUpperCase()+" TAHUN ANGGARAN 2024</p>"
-        + "<p>Pemerintah Daerah: <strong>"+(pemda||"-")+"</strong></p></div>"
-        + "<table class='it' style='margin-bottom:12pt'><tbody>"
-        + "<tr><td class='lb'>Kepada Yth.</td><td class='sp'>:</td><td><strong>Kepala "+namaOPD+"</strong></td></tr>"
-        + "<tr><td class='lb'>Perihal</td><td class='sp'>:</td><td><strong>Hasil Verifikasi Kelengkapan Dokumen "+triwulan+" DAK Bidang Jalan TA 2024</strong></td></tr>"
-        + "<tr><td class='lb'>Tanggal Laporan</td><td class='sp'>:</td><td>"+tanggal+"</td></tr>"
-        + "</tbody></table>"
-        + "<div class='section'><h2>I.&nbsp; RINGKASAN HASIL VERIFIKASI</h2>"
-        + "<p>Berdasarkan hasil verifikasi yang dilakukan oleh PFID Kementerian PUPR terhadap kelengkapan dokumen "
-        + triwulan+" DAK Bidang Jalan Tahun Anggaran 2024 untuk "+(pemda||"-")+", diperoleh hasil sebagai berikut:</p>"
-        + "<table style='margin-top:8pt'><tbody>"
-        + "<tr><td style='border:1px solid #000;padding:5px 8px;font-weight:bold;background:#f0f0f0'>URAIAN</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold;background:#f0f0f0'>KETERANGAN</td></tr>"
-        + "<tr><td style='border:1px solid #000;padding:5px 8px'>Total Dokumen yang Dipersyaratkan</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+totalDok+" dokumen</td></tr>"
-        + "<tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Telah Diupload</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+uploaded+" dokumen</td></tr>"
-        + "<tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Terverifikasi PFID</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+verified+" dokumen</td></tr>"
-        + "<tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Belum Sesuai / Belum Upload</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+belumOk+" dokumen</td></tr>"
-        + "</tbody></table></div>"
-        + "<div class='section'><h2>II.&nbsp; DETAIL KELENGKAPAN DOKUMEN</h2>"
-        + "<table><thead><tr>"
-        + "<th style='width:4%'>NO</th><th style='width:36%'>DOKUMEN</th>"
-        + "<th style='width:8%'>WAJIB</th><th style='width:14%'>STATUS</th>"
-        + "<th style='width:38%'>CATATAN PFID</th>"
-        + "</tr></thead><tbody>"+tableRows+"</tbody></table></div>"
-        + "<div class='section'><h2>III.&nbsp; TINDAK LANJUT YANG DIPERLUKAN</h2>"
-        + "<p>Berdasarkan hasil verifikasi di atas, kami memohon kepada Pemerintah Daerah untuk segera menindaklanjuti hal-hal berikut:</p>"
-        + tindakList
-        + "<p class='footer-note'>Mohon dokumen yang belum sesuai segera dilengkapi melalui sistem eMonitoring DAK paling lambat 7 hari kerja setelah surat ini diterima.</p>"
-        + "</div>"
-        + "<div class='section'><h2>IV.&nbsp; PENUTUP</h2>"
-        + "<p>Demikian laporan hasil verifikasi ini kami sampaikan. Atas perhatian dan kerja sama Saudara, kami ucapkan terima kasih.</p>"
-        + "<div style='margin-top:40pt;text-align:right'>"
-        + "<p>Jakarta, "+tanggal+"</p>"
-        + "<p>Kepala Pusat Fasilitasi Infrastruktur Daerah</p>"
-        + "<p>Kementerian PUPR</p>"
-        + "<p style='margin-top:60pt'>(.......................................)</p>"
-        + "<p>NIP. ......................................</p>"
-        + "</div></div>"
-        + "</body></html>";
-
-      var blob = new Blob([html], { type: "application/msword;charset=utf-8" });
-      var url  = URL.createObjectURL(blob);
-      var a    = document.createElement("a");
-      a.href   = url;
-      a.download = "Laporan_Verifikasi_"+triwulan+"_"+(pemda||"").split(" ").join("_")+".doc";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      var totalDok=snDocs.length, upld=snDocs.filter(function(d){return(snState[d.id]||{}).uploaded;}).length;
+      var verif=snDocs.filter(function(d){return(snState[d.id]||{}).verifiedPFID;}).length, belumOk=snNotOk.length;
+      var tindakList=belumOk===0?"<p style='color:#375623'>Seluruh dokumen telah sesuai dan lengkap.</p>":"<ul style='margin:4pt 0 0 0'>"+snNotOk.map(function(doc){var st=snState[doc.id]||{};return"<li style='margin-bottom:4pt'>"+doc.label+(st.catatan?" &mdash; "+st.catatan:"")+(!st.uploaded?" (belum diunggah)":" (menunggu verifikasi PFID)")+"</li>";}).join("")+"</ul>";
+      var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;font-size:11pt;margin:2.5cm 2cm;color:#000}h1{font-size:13pt;text-align:center;margin:0 0 2pt 0}h2{font-size:11pt;margin:14pt 0 6pt 0}.kop{text-align:center;margin-bottom:14pt;border-bottom:3px double #000;padding-bottom:10pt}table{border-collapse:collapse;width:100%}th{border:1px solid #000;padding:5px 8px;background:#1F4E79;color:#fff;font-size:10pt;text-align:center}td{font-size:10pt}.it td{border:none;padding:2pt 6pt;vertical-align:top}.it .lb{width:120pt;font-weight:bold}.it .sp{width:10pt;text-align:center}.section{margin-top:14pt}.footer-note{font-style:italic;font-size:9.5pt;margin-top:10pt;border-top:1px solid #ccc;padding-top:6pt}</style></head><body><div class='kop'><h1>KEMENTERIAN PEKERJAAN UMUM</h1><h1>SEKRETARIAT JENDERAL</h1><h1>PUSAT FASILITASI INFRASTRUKTUR DAERAH (PFID)</h1><p style='font-size:13pt;font-weight:bold;margin-top:6pt'>LAPORAN HASIL VERIFIKASI DOKUMEN</p><p style='font-size:12pt;font-weight:bold'>DAK BIDANG JALAN &mdash; "+triwulan.toUpperCase()+" TAHUN ANGGARAN 2024</p><p>Pemerintah Daerah: <strong>"+(pemda||"-")+"</strong></p></div><table class='it' style='margin-bottom:12pt'><tbody><tr><td class='lb'>Kepada Yth.</td><td class='sp'>:</td><td><strong>Kepala "+namaOPD+"</strong></td></tr><tr><td class='lb'>Perihal</td><td class='sp'>:</td><td><strong>Hasil Verifikasi Kelengkapan Dokumen "+triwulan+" DAK Bidang Jalan TA 2024</strong></td></tr><tr><td class='lb'>Tanggal Laporan</td><td class='sp'>:</td><td>"+tanggal+"</td></tr></tbody></table><div class='section'><h2>I.&nbsp; RINGKASAN HASIL VERIFIKASI</h2><p>Berdasarkan hasil verifikasi yang dilakukan oleh PFID Kementerian PUPR terhadap kelengkapan dokumen "+triwulan+" DAK Bidang Jalan Tahun Anggaran 2024 untuk "+(pemda||"-")+", diperoleh hasil sebagai berikut:</p><table style='margin-top:8pt'><tbody><tr><td style='border:1px solid #000;padding:5px 8px;font-weight:bold;background:#f0f0f0'>URAIAN</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold;background:#f0f0f0'>KETERANGAN</td></tr><tr><td style='border:1px solid #000;padding:5px 8px'>Total Dokumen yang Dipersyaratkan</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+totalDok+" dokumen</td></tr><tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Telah Diupload</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+upld+" dokumen</td></tr><tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Terverifikasi PFID</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+verif+" dokumen</td></tr><tr><td style='border:1px solid #000;padding:5px 8px'>Dokumen Belum Sesuai / Belum Upload</td><td style='border:1px solid #000;padding:5px 8px;font-weight:bold'>"+belumOk+" dokumen</td></tr></tbody></table></div><div class='section'><h2>II.&nbsp; DETAIL KELENGKAPAN DOKUMEN</h2><table><thead><tr><th style='width:4%'>NO</th><th style='width:36%'>DOKUMEN</th><th style='width:8%'>WAJIB</th><th style='width:14%'>STATUS</th><th style='width:38%'>CATATAN PFID</th></tr></thead><tbody>"+tableRows+"</tbody></table></div><div class='section'><h2>III.&nbsp; TINDAK LANJUT YANG DIPERLUKAN</h2><p>Berdasarkan hasil verifikasi di atas, kami memohon kepada Pemerintah Daerah untuk segera menindaklanjuti hal-hal berikut:</p>"+tindakList+"<p class='footer-note'>Mohon dokumen yang belum sesuai segera dilengkapi melalui sistem eMonitoring DAK paling lambat 7 hari kerja setelah surat ini diterima.</p></div><div class='section'><h2>IV.&nbsp; PENUTUP</h2><p>Demikian laporan hasil verifikasi ini kami sampaikan. Atas perhatian dan kerja sama Saudara, kami ucapkan terima kasih.</p><div style='margin-top:40pt;text-align:right'><p>Jakarta, "+tanggal+"</p><p>Kepala Pusat Fasilitasi Infrastruktur Daerah</p><p>Kementerian PUPR</p><p style='margin-top:60pt'>(.......................................)</p><p>NIP. ......................................</p></div></div></body></html>";
+      var blob=new Blob([html],{type:"application/msword;charset=utf-8"});
+      var url=URL.createObjectURL(blob), a=document.createElement("a");
+      a.href=url; a.download="Laporan_Verifikasi_"+triwulan+"_"+(pemda||"").split(" ").join("_")+".doc";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       setReportDone(true);
     } catch(e) {
-      alert("Gagal generate Word: " + (e && e.message ? e.message : "Error tidak diketahui"));
-    } finally {
-      setGeneratingReport(false);
-    }
+      alert("Gagal generate Word: "+(e&&e.message?e.message:"Error"));
+    } finally { setGeneratingReport(false); }
   }
 
-
-    // Dokumen berdasarkan status pengadaan (sebelum Terkontrak)
+  // REVISI 1: Jika belum Terkontrak, tampilkan dokumen Persiapan SELALU
+  // ditambah dokumen PBJ jika statusnya PBJ
   if (!terkontrak) {
     const statusPengadaanLocal = statusPengadaan || "Persiapan";
-    const isPersiapan = statusPengadaanLocal === "Persiapan";
     const isPBJ = statusPengadaanLocal === "Proses Pengadaan Barang & Jasa";
 
     const docsPersiapan = [
@@ -1349,8 +1076,6 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
       { id:"ded_lelang", label:"DED Dokumen Lelang (RAB, Spesifikasi Teknis, Gambar Rencana)", required:true, keterangan:"Dokumen teknis untuk proses lelang" },
     ];
 
-    const activeDocs = isPersiapan ? docsPersiapan : isPBJ ? docsPBJ : [];
-
     return (
       <div>
         <div style={{ background:"var(--yellow-bg)",border:"1px solid var(--yellow)",borderRadius:10,padding:"14px 18px",marginBottom:20,display:"flex",gap:12,alignItems:"flex-start" }}>
@@ -1358,21 +1083,33 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
           <div>
             <div style={{ fontWeight:700,color:S.yellow,marginBottom:4 }}>Status: {statusPengadaanLocal}</div>
             <div style={{ fontSize:12,color:S.muted }}>
-              {isPersiapan && "Pada tahap persiapan, PEMDA wajib melengkapi DED Final RK dan DPA sebelum melanjutkan ke proses pengadaan."}
-              {isPBJ && "Pada tahap Proses PBJ, PEMDA wajib melengkapi DED Dokumen Lelang untuk proses pengadaan barang & jasa."}
+              Dokumen Persiapan wajib dilengkapi di semua tahap pengadaan.
+              {isPBJ && " Pada tahap Proses PBJ, tambahkan pula DED Dokumen Lelang."}
             </div>
           </div>
         </div>
 
-        {activeDocs.length > 0 && (
-          <div className="checklist-panel" style={{ marginBottom:20 }}>
+        {/* REVISI 1: Persiapan selalu tampil */}
+        <div className="checklist-panel" style={{ marginBottom:16 }}>
+          <div className="checklist-header">
+            <span className="checklist-title"><FileText size={14} color={S.accent}/> Dokumen Tahap Persiapan (Wajib di Semua Tahap)</span>
+          </div>
+          {docsPersiapan.map(doc => {
+            const st = docState[doc.id]||{};
+            return <DocRow key={doc.id} doc={doc} state={st} isPemda={isPemda}
+              onUpload={()=>onDocChange(doc.id,{ uploaded:true,verifiedPFID:false,catatan:"" })}
+              onVerify={()=>onDocChange(doc.id,{ ...st,verifiedPFID:true,tanggalVerif:new Date().toISOString().split("T")[0] })}
+              onReject={cat=>onDocChange(doc.id,{ ...st,verifiedPFID:false,catatan:cat })}/>;
+          })}
+        </div>
+
+        {/* PBJ docs hanya jika status PBJ */}
+        {isPBJ && (
+          <div className="checklist-panel" style={{ marginBottom:16 }}>
             <div className="checklist-header">
-              <span className="checklist-title">
-                <FileText size={14} color={S.accent}/>
-                {isPersiapan ? "Dokumen Tahap Persiapan" : "Dokumen Tahap Proses PBJ"}
-              </span>
+              <span className="checklist-title"><FileText size={14} color={S.yellow}/> Dokumen Tahap Proses PBJ</span>
             </div>
-            {activeDocs.map(doc => {
+            {docsPBJ.map(doc => {
               const st = docState[doc.id]||{};
               return <DocRow key={doc.id} doc={doc} state={st} isPemda={isPemda}
                 onUpload={()=>onDocChange(doc.id,{ uploaded:true,verifiedPFID:false,catatan:"" })}
@@ -1382,7 +1119,7 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
           </div>
         )}
 
-        <div style={{ padding:"30px 0",textAlign:"center" }}>
+        <div style={{ padding:"24px 0",textAlign:"center" }}>
           <Lock size={36} color={S.muted} style={{ marginBottom:12 }}/>
           <div style={{ fontSize:14,fontWeight:700,color:S.muted,marginBottom:6 }}>Dokumen Kontrak Belum Tersedia</div>
           <div style={{ fontSize:12,color:S.dim,maxWidth:360,margin:"0 auto" }}>
@@ -1395,7 +1132,6 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
 
   return (
     <div>
-      {/* Cek 100% fisik (TW2-4) */}
       {triwulan !== "TW1" && (
         <div style={{ background:currentIs100?"var(--green-bg)":"var(--surface2)",border:`1px solid ${currentIs100?"var(--green)":S.border2}`,borderRadius:10,padding:"14px 18px",marginBottom:20 }}>
           <div style={{ display:"flex",alignItems:"center",gap:14 }}>
@@ -1421,17 +1157,13 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
         </div>
       )}
 
-      {/* Locked state  -  jika TW sebelumnya 100%, TW ini auto grey */}
       {isLockedByPrev && (
         <div className="alert alert-info" style={{ marginBottom:16 }}>
           <Info size={14}/>
-          <div>
-            <strong>Pekerjaan sudah 100% sejak {prevTW}.</strong> Dokumen {triwulan} terkunci otomatis dan dianggap selesai. Status pelaporan {triwulan} diteruskan dari {prevTW}.
-          </div>
+          <div><strong>Pekerjaan sudah 100% sejak {prevTW}.</strong> Dokumen {triwulan} terkunci otomatis.</div>
         </div>
       )}
 
-      {/* Summary */}
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20 }}>
         {[
           { label:"Dokumen Diupload", val:`${uploaded}/${allDocsForReport.length}`, color:S.accent },
@@ -1446,7 +1178,6 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
         ))}
       </div>
 
-      {/* Progress bar */}
       <div style={{ marginBottom:20,opacity:isLockedByPrev?0.5:1 }}>
         <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6 }}>
           <span style={{ color:S.muted,fontWeight:600 }}>Kelengkapan {triwulan}</span>
@@ -1457,7 +1188,6 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
         </div>
       </div>
 
-      {/* Checklist kelengkapan */}
       <div className="checklist-panel" style={{ marginBottom:24,opacity:isLockedByPrev?0.45:1,pointerEvents:isLockedByPrev?"none":"auto" }}>
         <div className="checklist-header">
           <span className="checklist-title"><FileText size={14} color={S.accent}/> Kelengkapan Dokumen  -  {triwulan}</span>
@@ -1478,7 +1208,6 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
         })}
       </div>
 
-      {/* PHO docs  -  hanya jika centang 100% */}
       {showPHO && !isLockedByPrev && (
         <div className="checklist-panel" style={{ marginBottom:24,border:"1px solid var(--green)" }}>
           <div className="checklist-header" style={{ background:"var(--green-bg)" }}>
@@ -1494,7 +1223,6 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
         </div>
       )}
 
-      {/* ── LAPORAN PFID ── */}
       <div style={{ borderTop:`2px dashed ${S.border}`,paddingTop:24 }}>
         <div className="section-title"><FileText size={13}/>Laporan Hasil Verifikasi PFID</div>
         {notOk.length===0 ? (
@@ -1516,11 +1244,8 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
             );})}
           </div>
         )}
-
-        {/* OPD Contact Box + Generate Report */}
         {!isPemda && (
           <div style={{ display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap",marginBottom:16 }}>
-            {/* Kotak OPD  -  klik buka WA */}
             <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer"
               style={{ display:"flex",gap:12,alignItems:"center",background:S.surface2,border:"1px solid var(--green)",borderRadius:10,padding:"12px 18px",textDecoration:"none",minWidth:260,cursor:"pointer",transition:"background 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.background="var(--green-bg)"}
@@ -1531,10 +1256,9 @@ function TabKelengkapan({ isPemda, terkontrak, triwulan, pemda, pemda_info, docS
               <div>
                 <div style={{ fontSize:10,color:S.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em" }}>Kontak OPD</div>
                 <div style={{ fontSize:13,fontWeight:700,color:S.text }}>{pemda_info?.namaOPD||pemda}</div>
-                <div style={{ fontSize:11,color:S.green,fontFamily:"'DM Mono',monospace" }}>+{waNumber} * Chat WA</div>
+                <div style={{ fontSize:11,color:S.green,fontFamily:"'DM Mono',monospace" }}>+{waNumber} · Chat WA</div>
               </div>
             </a>
-
             <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
               <button className="btn btn-primary" onClick={handleGenerateWord} disabled={generatingReport}>
                 {generatingReport?<RefreshCw size={13} style={{ animation:"spin 1s linear infinite" }}/>:<Download size={13}/>}
@@ -1581,12 +1305,10 @@ export default function PemdaDetail({ pemda, provinsi, triwulan, setPage }) {
   const terkontrak = isTerkontrak(latestStatus);
   const [docState, setDocState] = useState({});
   function onDocChange(id, patch) { setDocState(s=>({ ...s,[id]:{ ...(s[id]||{}),...patch } })); }
-  // Fisik 100% per TW  -  shared state untuk logika lock
   const [fisik100PerTW, setFisik100PerTW] = useState({ TW1:false,TW2:false,TW3:false,TW4:false });
   function onFisik100Change(tw, val) {
     setFisik100PerTW(s => {
       const next = { ...s, [tw]: val };
-      // Propagasi ke TW berikutnya jika val=true
       if (val) {
         const order = ["TW1","TW2","TW3","TW4"];
         const idx = order.indexOf(tw);
@@ -1603,7 +1325,7 @@ export default function PemdaDetail({ pemda, provinsi, triwulan, setPage }) {
   return (
     <div>
       <div className="page-header" style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
-        <div><h1>{pemda}</h1><p>Bidang Jalan * {provinsi} * {triwulan}</p></div>
+        <div><h1>{pemda}</h1><p>Bidang Jalan · {provinsi} · {triwulan}</p></div>
         <div style={{ display:"flex",gap:8,alignItems:"center" }}>
           <span style={{ fontSize:11,color:S.muted,fontWeight:600 }}>TAMPILAN:</span>
           <button className={`btn btn-sm ${!isPemda?"btn-primary":"btn-outline"}`} onClick={()=>setIsPemda(false)}><Zap size={12}/> PFID / Pusat</button>
@@ -1611,15 +1333,13 @@ export default function PemdaDetail({ pemda, provinsi, triwulan, setPage }) {
         </div>
       </div>
 
-      {/* Deadline warning global */}
       {twInfo?.overdue && (
         <div className="alert alert-warn" style={{ marginBottom:12 }}>
           <AlertTriangle size={14}/>
-          <div><strong>Batas pelaporan {twInfo.label} telah terlewati!</strong> Penalti keterlambatan akan dicatat. Silakan segera lengkapi pelaporan {triwulan}.</div>
+          <div><strong>Batas pelaporan {twInfo.label} telah terlewati!</strong> Penalti keterlambatan akan dicatat.</div>
         </div>
       )}
 
-      {/* Summary bar */}
       <div style={{ background:S.surface2,border:`1px solid ${S.border2}`,borderRadius:"var(--radius-lg)",padding:"14px 20px",marginBottom:20,display:"flex",gap:20,flexWrap:"wrap",alignItems:"center" }}>
         <div style={{ flex:1,minWidth:220 }}>
           <div style={{ fontSize:10,color:S.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4 }}>Paket Kegiatan</div>
